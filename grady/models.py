@@ -19,6 +19,15 @@ class Job:
     posted_at: datetime
 
 
+@dataclass(frozen=True)
+class StoredJob:
+    """A Job read back from the database, with what we've worked out about it."""
+    id: int
+    job: Job
+    sponsor_status: str  # "sponsor", "agency" or "not_sponsor"
+    sponsor_name: str | None  # the matching name on the sponsor register
+
+
 def detect_work_mode(text: str) -> str:
     """Guess remote/hybrid from advert text, since the APIs don't say.
 

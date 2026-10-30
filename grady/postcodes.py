@@ -45,7 +45,8 @@ def postcodes_to_places(postcodes: list[str]) -> dict[str, str]:
             info = item["result"]
             if info is None or not info["admin_district"]:
                 continue
-            place = info["admin_district"]
+            # The official name of some cities is e.g. "Bristol, City of"; show "Bristol".
+            place = info["admin_district"].removesuffix(", City of")
             if info["region"] == "London":
                 place = f"{place}, London"
             places[item["query"]] = place

@@ -6,14 +6,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from grady.config import PROJECT_ROOT
-from grady.models import Job
+from grady.models import Job, StoredJob
 from grady.normalise import normalise_company, normalise_title, same_location
 
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "jobs.db"
 
 # Bump this whenever SCHEMA changes, and add a step to MIGRATIONS so existing
 # database files are upgraded instead of having to be deleted.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     title_norm    TEXT NOT NULL,
     sponsor_status TEXT,          -- "sponsor", "agency", "not_sponsor"; NULL = not checked yet
     sponsor_name   TEXT,          -- the matching name on the sponsor register
+    emailed_at     TEXT,          -- when it was sent in a digest; NULL = not yet
     -- The same advert must never be stored twice from the same source.
     UNIQUE (source, source_id)
 );
@@ -46,6 +47,7 @@ MIGRATIONS = {
         ALTER TABLE jobs ADD COLUMN sponsor_status TEXT;
         ALTER TABLE jobs ADD COLUMN sponsor_name TEXT;
     """,
+    3: "ALTER TABLE jobs ADD COLUMN emailed_at TEXT;",
 }
 
 
@@ -155,6 +157,31 @@ class JobStore:
                 """,
                 [(status, name, company) for company, (status, name) in statuses.items()],
             )
+
+    def jobs_to_email(self) -> list[StoredJob]:
+        """Sponsor and agency jobs that haven't been sent in a digest yet."""
+        rows = self.conn.execute(
+            """
+            SELECT id, source, source_id, title, company, location, work_mode,
+                   salary_min, salary_max, url, posted_at, sponsor_status, sponsor_name
+            FROM jobs
+            WHERE emailed_at IS NULL AND sponsor_status IN ('sponsor', 'agency')
+            """
+        ).fetchall()
+        return [
+            StoredJob(
+                id=row[0],
+                job=Job(
+                    source=row[1], source_id=row[2], title=row[3], company=row[4],
+                    location=row[5], work_mode=row[6], salary_min=row[7],
+                    salary_max=row[8], url=row[9],
+                    posted_at=datetime.fromisoformat(row[10]),
+                ),
+                sponsor_status=row[11],
+                sponsor_name=row[12],
+            )
+            for row in rows
+        ]
 
     def count_by_sponsor_status(self) -> dict[str, int]:
         rows = self.conn.execute(

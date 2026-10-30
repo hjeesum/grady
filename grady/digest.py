@@ -1,0 +1,98 @@
+"""Build the daily email: choose, order and cap the jobs, then render HTML."""
+
+from collections import Counter
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
+
+from grady.config import Settings
+from grady.filters import rejection_reason
+from grady.models import Job, StoredJob
+from grady.normalise import same_location
+
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+@dataclass
+class Section:
+    jobs: list[StoredJob]  # the jobs shown, already capped
+    more: int  # how many more there were beyond the cap
+
+
+@dataclass
+class Digest:
+    sponsor: Section
+    agency: Section
+    filtered_out: Counter  # reason -> number of jobs left out for that reason
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.sponsor.jobs and not self.agency.jobs
+
+
+def build_digest(stored_jobs: list[StoredJob], settings: Settings) -> Digest:
+    filters = settings.filters
+    kept = []
+    filtered_out = Counter()
+    for stored in stored_jobs:
+        reason = rejection_reason(stored.job, filters)
+        if reason:
+            filtered_out[reason] += 1
+        else:
+            kept.append(stored)
+
+    def sort_key(stored: StoredJob):
+        job = stored.job
+        if is_preferred_city(job, filters.preferred_cities):
+            group = 0
+        elif job.work_mode == "remote" and filters.remote_ok:
+            group = 1
+        else:
+            group = 2
+        # Within each group, newest first (a negative timestamp sorts newest first).
+        return (group, -job.posted_at.timestamp())
+
+    def section(status: str, cap: int) -> Section:
+        jobs = sorted((s for s in kept if s.sponsor_status == status), key=sort_key)
+        return Section(jobs=jobs[:cap], more=max(0, len(jobs) - cap))
+
+    return Digest(
+        sponsor=section("sponsor", settings.email.max_sponsor_jobs),
+        agency=section("agency", settings.email.max_agency_jobs),
+        filtered_out=filtered_out,
+    )
+
+
+def is_preferred_city(job: Job, preferred_cities: list[str]) -> bool:
+    return any(same_location(job.location, city) for city in preferred_cities)
+
+
+def format_salary(job: Job) -> str:
+    if job.salary_min is None and job.salary_max is None:
+        return "Salary not given"
+    low = job.salary_min or job.salary_max
+    high = job.salary_max or job.salary_min
+    if low == high:
+        return f"£{low:,}"
+    return f"£{low:,} – £{high:,}"
+
+
+def subject(digest: Digest, today: date) -> str:
+    count = len(digest.sponsor.jobs) + digest.sponsor.more
+    return f"Grady: {count} new sponsor job{'s' if count != 1 else ''} – {today:%d %b %Y}"
+
+
+def render_html(digest: Digest, settings: Settings, today: date) -> str:
+    # autoescape=True turns characters like < and & in job data into safe HTML,
+    # so text from an API can never break or inject into the email.
+    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
+    template = env.get_template("digest.html")
+    return template.render(
+        digest=digest,
+        subject=subject(digest, today),
+        today=today,
+        format_salary=format_salary,
+        is_preferred=lambda job: is_preferred_city(job, settings.filters.preferred_cities),
+    )

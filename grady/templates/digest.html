@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ subject }}</title>
+</head>
+{#- Email programs ignore most CSS, so styles are inline and layout uses tables. #}
+<body style="margin:0; padding:0; background:#f4f5f7; font-family:Arial, Helvetica, sans-serif; color:#1f2328;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px; background:#ffffff; border-radius:8px;">
+
+  <tr><td style="padding:24px 24px 8px;">
+    <h1 style="margin:0; font-size:20px;">{{ subject }}</h1>
+    <p style="margin:8px 0 0; font-size:14px; color:#57606a;">
+      New graduate and junior tech jobs at employers on the UK Register of Licensed Sponsors.
+      ★ marks your preferred cities.
+    </p>
+  </td></tr>
+
+  {% macro job_row(stored, show_register) %}
+  {% set job = stored.job %}
+  <tr><td style="padding:12px 24px; border-top:1px solid #eaeef2;">
+    <a href="{{ job.url }}" style="font-size:16px; font-weight:bold; color:#0b57d0; text-decoration:none;">{{ job.title }}</a>
+    <div style="margin-top:4px; font-size:14px;">
+      {{ job.company }} · {% if is_preferred(job) %}★ {% endif %}{{ job.location or "Location not given" }}
+      {%- if job.work_mode != "unknown" %} · <span style="color:#1a7f37;">{{ job.work_mode | capitalize }}</span>{% endif %}
+    </div>
+    <div style="margin-top:2px; font-size:13px; color:#57606a;">
+      {{ format_salary(job) }} · Posted {{ job.posted_at.strftime("%d %b") }} · via {{ job.source | capitalize }}
+      {%- if show_register and stored.sponsor_name %}<br>Sponsor register: {{ stored.sponsor_name }}{% endif %}
+    </div>
+  </td></tr>
+  {% endmacro %}
+
+  <tr><td style="padding:16px 24px 4px;">
+    <h2 style="margin:0; font-size:16px;">Licensed sponsors</h2>
+  </td></tr>
+  {% for stored in digest.sponsor.jobs %}
+    {{ job_row(stored, true) }}
+  {% else %}
+  <tr><td style="padding:8px 24px; font-size:14px; color:#57606a;">No new sponsor jobs today.</td></tr>
+  {% endfor %}
+  {% if digest.sponsor.more %}
+  <tr><td style="padding:8px 24px; font-size:14px; color:#57606a;">…and {{ digest.sponsor.more }} more.</td></tr>
+  {% endif %}
+
+  {% if digest.agency.jobs %}
+  <tr><td style="padding:24px 24px 4px;">
+    <h2 style="margin:0; font-size:16px;">Recruitment agencies: check sponsorship yourself</h2>
+    <p style="margin:4px 0 0; font-size:13px; color:#57606a;">
+      These adverts don't name the employer, so we can't check the sponsor register. Ask the recruiter.
+    </p>
+  </td></tr>
+  {% for stored in digest.agency.jobs %}
+    {{ job_row(stored, false) }}
+  {% endfor %}
+  {% if digest.agency.more %}
+  <tr><td style="padding:8px 24px; font-size:14px; color:#57606a;">…and {{ digest.agency.more }} more.</td></tr>
+  {% endif %}
+  {% endif %}
+
+  <tr><td style="padding:24px; font-size:12px; color:#57606a; border-top:1px solid #eaeef2;">
+    {% if digest.filtered_out %}
+    Left out by your filters:
+    {% for reason, count in digest.filtered_out.most_common() %}{{ count }} {{ reason }}{% if not loop.last %}, {% endif %}{% endfor %}.<br>
+    {% endif %}
+    Always confirm sponsorship with the employer before applying. Sent by Grady.
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

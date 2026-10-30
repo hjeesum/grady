@@ -1,13 +1,20 @@
-"""Entry point for `python -m grady`. Fetches jobs, stores the new ones, checks sponsorship."""
+"""Entry point for `python -m grady`.
 
+Fetches jobs, stores the new ones, checks sponsorship, and builds the email digest.
+Run `python -m grady --help` for options.
+"""
+
+import argparse
 from collections import Counter
+from datetime import date
 
 import requests
 
 from grady import adzuna, reed
 from grady.agencies import AgencyDetector
 from grady.classify import classify_company
-from grady.config import load_settings
+from grady.config import PROJECT_ROOT, Settings, load_settings
+from grady.digest import build_digest, render_html
 from grady.http_utils import ApiError
 from grady.matching import SponsorMatcher
 from grady.sponsors import download_register, load_sponsor_names
@@ -20,13 +27,11 @@ SOURCES = {
     "reed": reed.fetch_all,
 }
 
+PREVIEW_PATH = PROJECT_ROOT / "data" / "digest_preview.html"
 
-def main() -> None:
-    settings = load_settings()
+
+def fetch_and_store(store: JobStore, settings: Settings) -> None:
     search = settings.search
-    # Open the database first, so a database problem stops us before we spend API requests.
-    store = JobStore()
-
     all_jobs = []
     for term in search.terms:
         for source_name, fetch_all in SOURCES.items():
@@ -47,6 +52,8 @@ def main() -> None:
     print(f"  {result.duplicates} duplicates of a job we already have")
     print(f"New jobs by source: {dict(Counter(job.source for job in result.new_jobs))}")
 
+
+def classify_unchecked(store: JobStore, settings: Settings) -> None:
     # Check sponsorship for every job not checked yet. This also covers jobs
     # stored before sponsor checking existed.
     companies = store.companies_to_classify()
@@ -58,6 +65,30 @@ def main() -> None:
         )
     print(f"\nChecked sponsorship for {len(companies)} companies.")
     print(f"Database now holds {store.count()} jobs: {store.count_by_sponsor_status()}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="python -m grady")
+    parser.add_argument(
+        "--skip-fetch", action="store_true",
+        help="don't call the job APIs; build the digest from jobs already stored",
+    )
+    args = parser.parse_args()
+
+    settings = load_settings()
+    # Open the database first, so a database problem stops us before we spend API requests.
+    store = JobStore()
+
+    if not args.skip_fetch:
+        fetch_and_store(store, settings)
+    classify_unchecked(store, settings)
+
+    digest = build_digest(store.jobs_to_email(), settings)
+    PREVIEW_PATH.write_text(render_html(digest, settings, date.today()), encoding="utf-8")
+    print(f"\nDigest: {len(digest.sponsor.jobs)} sponsor jobs (+{digest.sponsor.more} more), "
+          f"{len(digest.agency.jobs)} agency jobs (+{digest.agency.more} more)")
+    print(f"Left out by filters: {dict(digest.filtered_out)}")
+    print(f"Preview saved to {PREVIEW_PATH}")
     store.close()
 
 

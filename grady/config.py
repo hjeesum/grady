@@ -23,13 +23,21 @@ class FilterSettings:
     preferred_cities: list[str]
     remote_ok: bool
     min_salary: int
+    include_keywords: list[str]
     exclude_keywords: list[str]
+
+
+@dataclass(frozen=True)
+class EmailSettings:
+    max_sponsor_jobs: int
+    max_agency_jobs: int
 
 
 @dataclass(frozen=True)
 class Settings:
     search: SearchSettings
     filters: FilterSettings
+    email: EmailSettings
     known_agencies: list[str]
 
 
@@ -58,7 +66,13 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
             preferred_cities=list(filters["preferred_cities"]),
             remote_ok=bool(filters["remote_ok"]),
             min_salary=int(filters["min_salary"]),
-            exclude_keywords=[k.lower() for k in filters["exclude_keywords"]],
+            # An empty list in YAML ("include_keywords:" with nothing under it) loads as None.
+            include_keywords=[k.lower() for k in filters["include_keywords"] or []],
+            exclude_keywords=[k.lower() for k in filters["exclude_keywords"] or []],
+        ),
+        email=EmailSettings(
+            max_sponsor_jobs=int(raw["email"]["max_sponsor_jobs"]),
+            max_agency_jobs=int(raw["email"]["max_agency_jobs"]),
         ),
         known_agencies=list(raw["agencies"]["known_names"]),
     )
