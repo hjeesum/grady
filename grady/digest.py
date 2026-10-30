@@ -17,8 +17,18 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 @dataclass
 class Section:
-    jobs: list[StoredJob]  # the jobs shown, already capped
-    more: int  # how many more there were beyond the cap
+    all_jobs: list[StoredJob]  # every job for this section, in display order
+    cap: int  # how many to show
+
+    @property
+    def jobs(self) -> list[StoredJob]:
+        """The jobs shown in the email."""
+        return self.all_jobs[:self.cap]
+
+    @property
+    def more(self) -> int:
+        """How many jobs beyond the cap ("...and N more")."""
+        return max(0, len(self.all_jobs) - self.cap)
 
 
 @dataclass
@@ -30,6 +40,15 @@ class Digest:
     @property
     def is_empty(self) -> bool:
         return not self.sponsor.jobs and not self.agency.jobs
+
+    @property
+    def reported_ids(self) -> list[int]:
+        """Every job the email tells you about: shown, or counted in "...and N more".
+
+        Filtered-out jobs aren't included, so if you loosen a filter they still
+        appear in a later email.
+        """
+        return [s.id for s in self.sponsor.all_jobs + self.agency.all_jobs]
 
 
 def build_digest(stored_jobs: list[StoredJob], settings: Settings) -> Digest:
@@ -56,7 +75,7 @@ def build_digest(stored_jobs: list[StoredJob], settings: Settings) -> Digest:
 
     def section(status: str, cap: int) -> Section:
         jobs = sorted((s for s in kept if s.sponsor_status == status), key=sort_key)
-        return Section(jobs=jobs[:cap], more=max(0, len(jobs) - cap))
+        return Section(all_jobs=jobs, cap=cap)
 
     return Digest(
         sponsor=section("sponsor", settings.email.max_sponsor_jobs),
@@ -80,7 +99,7 @@ def format_salary(job: Job) -> str:
 
 
 def subject(digest: Digest, today: date) -> str:
-    count = len(digest.sponsor.jobs) + digest.sponsor.more
+    count = len(digest.sponsor.all_jobs)
     return f"Grady: {count} new sponsor job{'s' if count != 1 else ''} – {today:%d %b %Y}"
 
 
@@ -96,3 +115,28 @@ def render_html(digest: Digest, settings: Settings, today: date) -> str:
         format_salary=format_salary,
         is_preferred=lambda job: is_preferred_city(job, settings.filters.preferred_cities),
     )
+
+
+def render_text(digest: Digest, today: date) -> str:
+    """Plain-text version of the email, for programs that don't show HTML."""
+    lines = [subject(digest, today), ""]
+    sections = [
+        ("LICENSED SPONSORS", digest.sponsor),
+        ("RECRUITMENT AGENCIES: check sponsorship yourself", digest.agency),
+    ]
+    for heading, section in sections:
+        if not section.jobs:
+            continue
+        lines += [heading, ""]
+        for stored in section.jobs:
+            job = stored.job
+            lines += [
+                job.title,
+                f"  {job.company} · {job.location or 'Location not given'} · {format_salary(job)}",
+                f"  {job.url}",
+                "",
+            ]
+        if section.more:
+            lines += [f"...and {section.more} more.", ""]
+    lines.append("Always confirm sponsorship with the employer before applying.")
+    return "\n".join(lines)

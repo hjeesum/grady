@@ -62,6 +62,15 @@ def test_sponsor_status_starts_unchecked_then_is_saved(store, make_job):
     assert store.count_by_sponsor_status() == {"sponsor": 1}
 
 
+def test_emailed_jobs_are_not_offered_again(store, make_job):
+    store.save_new([make_job(company="Capgemini")])
+    store.set_sponsor_status({"Capgemini": ("sponsor", "Capgemini UK PLC")})
+    [stored] = store.jobs_to_email()
+
+    store.mark_emailed([stored.id])
+    assert store.jobs_to_email() == []
+
+
 def test_version_2_database_is_upgraded_and_keeps_its_jobs(tmp_path):
     # Build a database exactly as version 2 of the code left it.
     path = tmp_path / "old.db"

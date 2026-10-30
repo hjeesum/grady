@@ -1,6 +1,6 @@
 """Entry point for `python -m grady`.
 
-Fetches jobs, stores the new ones, checks sponsorship, and builds the email digest.
+Fetches jobs, stores the new ones, checks sponsorship, and emails a digest of new jobs.
 Run `python -m grady --help` for options.
 """
 
@@ -14,7 +14,8 @@ from grady import adzuna, reed
 from grady.agencies import AgencyDetector
 from grady.classify import classify_company
 from grady.config import PROJECT_ROOT, Settings, load_settings
-from grady.digest import build_digest, render_html
+from grady.digest import build_digest, render_html, render_text, subject
+from grady.emailer import send_email
 from grady.http_utils import ApiError
 from grady.matching import SponsorMatcher
 from grady.sponsors import download_register, load_sponsor_names
@@ -73,6 +74,10 @@ def main() -> None:
         "--skip-fetch", action="store_true",
         help="don't call the job APIs; build the digest from jobs already stored",
     )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="build the preview but don't send the email or mark jobs as emailed",
+    )
     args = parser.parse_args()
 
     settings = load_settings()
@@ -83,12 +88,27 @@ def main() -> None:
         fetch_and_store(store, settings)
     classify_unchecked(store, settings)
 
+    today = date.today()
     digest = build_digest(store.jobs_to_email(), settings)
-    PREVIEW_PATH.write_text(render_html(digest, settings, date.today()), encoding="utf-8")
+    html = render_html(digest, settings, today)
+    PREVIEW_PATH.write_text(html, encoding="utf-8")
     print(f"\nDigest: {len(digest.sponsor.jobs)} sponsor jobs (+{digest.sponsor.more} more), "
           f"{len(digest.agency.jobs)} agency jobs (+{digest.agency.more} more)")
     print(f"Left out by filters: {dict(digest.filtered_out)}")
     print(f"Preview saved to {PREVIEW_PATH}")
+
+    if args.dry_run:
+        print("Dry run: email not sent.")
+    elif digest.is_empty:
+        # An empty email every day teaches you to ignore the emails.
+        print("No new jobs: email not sent.")
+    else:
+        send_email(subject(digest, today), html, render_text(digest, today))
+        # Only mark jobs once the email has definitely gone. If sending fails,
+        # send_email raises an error, we never reach this line, and the same
+        # jobs are offered again next run.
+        store.mark_emailed(digest.reported_ids)
+        print(f"Email sent; {len(digest.reported_ids)} jobs marked as emailed.")
     store.close()
 
 

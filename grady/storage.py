@@ -183,6 +183,15 @@ class JobStore:
             for row in rows
         ]
 
+    def mark_emailed(self, job_ids: list[int]) -> None:
+        """Record that these jobs were reported in a digest, so they're never sent again."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self.conn:
+            self.conn.executemany(
+                "UPDATE jobs SET emailed_at = ? WHERE id = ?",
+                [(now, job_id) for job_id in job_ids],
+            )
+
     def count_by_sponsor_status(self) -> dict[str, int]:
         rows = self.conn.execute(
             "SELECT sponsor_status, COUNT(*) FROM jobs GROUP BY sponsor_status"

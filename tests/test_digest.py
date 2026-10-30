@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from grady.config import load_settings
-from grady.digest import build_digest, format_salary, render_html
+from grady.digest import build_digest, format_salary, render_html, render_text
 from grady.filters import contains_word, rejection_reason
 from grady.models import StoredJob
 
@@ -86,6 +86,20 @@ def test_sections_are_capped_with_a_count_of_the_rest(settings, stored):
 def test_filtered_jobs_are_counted_by_reason(settings, stored):
     digest = build_digest([stored(1, title="Lead Developer"), stored(2)], settings)
     assert digest.filtered_out == {"excluded keyword in title": 1}
+
+
+def test_reported_ids_include_overflow_but_not_filtered(settings, stored):
+    # Cap is 2: jobs 1-3 are reported (2 shown + "1 more"); job 9 is filtered out,
+    # so it stays unemailed and reappears if the filter is loosened.
+    jobs = [stored(1), stored(2), stored(3), stored(9, title="Senior Developer")]
+    assert sorted(build_digest(jobs, settings).reported_ids) == [1, 2, 3]
+
+
+def test_render_text_lists_jobs_and_links(settings, stored):
+    digest = build_digest([stored(1, title="Graduate Software Engineer")], settings)
+    text = render_text(digest, date(2026, 10, 30))
+    assert "Graduate Software Engineer" in text
+    assert "https://example.com/job/1" in text
 
 
 @pytest.mark.parametrize(

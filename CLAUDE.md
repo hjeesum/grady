@@ -32,9 +32,10 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        (lowercase, strip Ltd/Limited/PLC...), rapidfuzz with a tested threshold.
 6. [x] Tests (pytest): normalisation, matching, de-dup, storage/migration, agencies, parsing.
        The labelled-set test only runs when data/sponsors/register.csv exists.
-7. [~] 7a done: filters.py + digest.py + templates/digest.html, preview at data/digest_preview.html
-       (`python -m grady --skip-fetch` rebuilds it without API calls). 7b next: send via SMTP,
-       set emailed_at. Open questions: Itol Recruit floods the agency section; search terms
+7. [x] Email: filters.py + digest.py + templates/digest.html + emailer.py (SMTP, HTML + text).
+       Preview always at data/digest_preview.html. `--skip-fetch` (no API calls), `--dry-run`
+       (no send, no marking). emailed_at is set only after a successful send, for shown and
+       "...and N more" jobs; filtered-out jobs stay unmarked. Open questions: Itol Recruit floods the agency section; search terms
        return few tech jobs at sponsors (4 of 56 sponsor jobs are tech).
    Original plan: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
 8. [ ] GitHub Actions: tests on push, daily scheduled run, secrets via GitHub Secrets.
