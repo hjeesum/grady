@@ -21,7 +21,11 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
      non-tech graduate jobs (consider Adzuna `category=it-jobs`).
    - Many Reed adverts are from recruitment agencies (Itol Recruit, Penguin Recruitment, Noir),
      which hide the real employer. Decide how to handle these in step 5.
-5. [ ] Sponsor matching: gov.uk Register of Licensed Sponsors (Workers) CSV, normalise names
+5. [~] Sponsor matching (5a register download + 5b matcher done; 5c pipeline + agencies next).
+       Matcher = exact -> unique word-prefix -> rapidfuzz ratio >= 95. Re-check with
+       `python -m scripts.evaluate_matching` after any matching change. Stripping generic
+       words was tried and made results worse (e.g. Express Solicitors = Express Solutions).
+   Original plan: gov.uk Register of Licensed Sponsors (Workers) CSV, normalise names
        (lowercase, strip Ltd/Limited/PLC...), rapidfuzz with a tested threshold.
 6. [ ] Tests (pytest): normalisation, fuzzy matching, de-dup especially.
 7. [ ] Email digest: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".

@@ -1,0 +1,51 @@
+advert_company,expected_register_name,note
+Accenture,Accenture (UK) Limited,exact after normalising
+Capgemini,Capgemini UK PLC,exact after normalising
+Thales UK Limited,Thales UK Limited,exact
+AECOM,AECOM LIMITED,exact after normalising
+Galliford Try,Galliford Try Plc,exact after normalising
+London Stock Exchange Group,London Stock Exchange Group plc,exact after normalising
+Leonardo,Leonardo UK Ltd,exact after normalising
+Fluor,Fluor Limited,exact after normalising
+Arriva,Arriva Limited,exact after normalising
+Transport for London,Transport for London,exact
+Hackajob Ltd,HACKAJOB LTD,exact after normalising
+Encirc,Encirc Limited,exact after normalising
+Sheffield Teaching Hospitals NHS Foundation Trust,Sheffield Teaching Hospitals NHS Foundation Trust,exact
+Tarmac,Tarmac Trading Limited,brand name vs legal name; trap: Tarmack Limited is a different company
+F8 FERROVIAL CONSTRUCTION  LIMITED,Ferrovial Construction UK Ltd,extra prefix in advert
+Suade,Suade Labs Ltd,brand name vs legal name
+Saica,SAICA Pack UK Ltd,brand name vs legal name
+Acorn Insurance,Acorn Insurance and Financial Services Limited,brand name vs legal name
+Leonardo Hotels,,trap: must not match Leonardo UK Ltd (defence)
+DXC Technology,,trap: MDX Technology is a different company
+Erin Associates,,trap: Ergon Associates is a different company
+Gleeson Recruitment Group,,trap: Green Recruitment is a different company
+Oscar Technology,,trap: Cara Technology is a different company
+Express Solicitors,,trap: Expert Solicitors is a different company
+Eligo Recruitment,,trap: Dingo Recruitment is a different company
+Thorn Baker Group,,trap: TH Baker is a different company
+Sanderson,,trap: Green Sanderson Opco is a different company
+Cast UK Limited,,trap: 4cast / Cast Advanced Concretes are different companies
+Penguin Recruitment,,not on register
+ITOL Recruit,,not on register
+Yolk Recruitment Ltd,,not on register
+Rise10 Recruitment,,trap: Sunrise Recruitment is a different company
+Bennett & Game Recruitment,,not on register
+Office Angels,,not on register
+Mole Valley Farmers Limited,,not on register
+Bristow Holland,,not on register
+Searchability NS&D,,not on register
+Oxford Knight,,not on register
+Chapman Tate Associates,,not on register
+Wintermann Search & Selection Limited,,not on register
+Jackie Kerr Recruitment Ltd,,not on register
+Candidate Source Ltd,,not on register
+A1 Personnel Employment Agency Ltd,,trap: generic word 'agency' alone must not match
+Expert Employment,,not on register
+Room At The Top Recruitment,,not on register
+Recruitment Helpline,,not on register
+First Military Recruitment,,trap: First Recruitment is a different company
+Deerfoot Recruitment Solutions Ltd,,not on register
+ETS Technical,,not on register
+KHR Recruitment Specialists,,not on register

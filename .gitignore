@@ -180,4 +180,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 # Grady: local runtime data (SQLite database, downloaded sponsor register)
-data/
+/data/
