@@ -1,0 +1,31 @@
+# Run the test suite on every push and pull request.
+name: Tests
+
+on:
+  push:
+    branches-ignore:
+      - data  # the database branch has no code to test
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip  # reuse downloaded packages between runs, so installs are faster
+          cache-dependency-path: requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # The labelled-examples test is skipped without the real register,
+      # so download it to make sure that test runs here too.
+      - name: Download the sponsor register
+        run: python -m grady.sponsors
+
+      - name: Run tests
+        run: python -m pytest -v

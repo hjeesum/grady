@@ -38,7 +38,10 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        "...and N more" jobs; filtered-out jobs stay unmarked. Open questions: Itol Recruit floods the agency section; search terms
        return few tech jobs at sponsors (4 of 56 sponsor jobs are tech).
    Original plan: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
-8. [ ] GitHub Actions: tests on push, daily scheduled run, secrets via GitHub Secrets.
+8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (07:00 UTC +
+       manual "Run workflow" button). jobs.db persists on a one-commit "data" branch
+       (restored at start, force-pushed at end). Repo hjeesum/grady is private.
+       Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.
 9. [ ] README: problem, how it works, screenshot, challenges (name matching), future work.
 
 ## Layout

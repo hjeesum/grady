@@ -1,0 +1,84 @@
+# Fetch new jobs and email the digest every morning.
+name: Daily digest
+
+on:
+  schedule:
+    # Cron times are in UTC: 07:00 UTC is 7am in UK winter and 8am in summer.
+    # GitHub may start scheduled runs a few minutes late when it's busy.
+    - cron: "0 7 * * *"
+  workflow_dispatch:  # adds a "Run workflow" button on GitHub, for running it by hand
+
+# Never run two digests at once: they'd both read the same database and
+# could email the same jobs twice.
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # needed to save the database to the "data" branch
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Each run starts on a fresh machine, so the database lives on a separate
+      # "data" branch. The very first run won't find it and starts a new one.
+      - name: Restore the job database
+        run: |
+          mkdir -p data
+          if git fetch --depth=1 origin data; then
+            git show FETCH_HEAD:jobs.db > data/jobs.db
+            echo "Restored jobs.db from the data branch."
+          else
+            echo "No data branch yet: starting with an empty database."
+          fi
+
+      - name: Fetch jobs and send the digest
+        run: python -m grady
+        env:
+          # Secrets come from Settings > Secrets and variables > Actions.
+          # GitHub hides their values in the logs.
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          REED_API_KEY: ${{ secrets.REED_API_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          # Not secret, so they're written here instead.
+          SMTP_HOST: smtp.gmail.com
+          SMTP_PORT: "587"
+
+      # Save the database even if sending failed: new jobs are stored but not
+      # marked as emailed, so they're sent next time. Every database change is
+      # made inside a transaction, so the file is never half-written.
+      - name: Save the job database
+        if: always()
+        run: |
+          if [ ! -f data/jobs.db ]; then
+            echo "No database to save."
+            exit 0
+          fi
+          # Build a fresh one-commit branch in a temporary folder, then
+          # overwrite "data" with it, so the branch never grows.
+          cd "$(mktemp -d)"
+          git init -q
+          git checkout -q -b data
+          cp "$GITHUB_WORKSPACE/data/jobs.db" .
+          git add jobs.db
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Job database after run ${{ github.run_number }}"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
+          echo "Saved jobs.db to the data branch."
