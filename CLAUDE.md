@@ -35,8 +35,10 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
 7. [x] Email: filters.py + digest.py + templates/digest.html + emailer.py (SMTP, HTML + text).
        Preview always at data/digest_preview.html. `--skip-fetch` (no API calls), `--dry-run`
        (no send, no marking). emailed_at is set only after a successful send, for shown and
-       "...and N more" jobs; filtered-out jobs stay unmarked. Open questions: Itol Recruit floods the agency section; search terms
-       return few tech jobs at sponsors (4 of 56 sponsor jobs are tech).
+       "...and N more" jobs; filtered-out jobs stay unmarked.
+       Search terms chosen by measurement (Oct 2026): useful sponsor tech jobs/week went 4 -> 14.
+       Adzuna category=it-jobs was tested and rejected: it hides graduate schemes.
+       filters.blocked_companies (ITOL Recruit) hides a company entirely.
    Original plan: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
 8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (07:00 UTC +
        manual "Run workflow" button). jobs.db persists on a one-commit "data" branch

@@ -35,6 +35,21 @@ def normalise_company(name: str) -> str:
     return " ".join(words)
 
 
+def company_starts_with(company: str, names: list[str]) -> bool:
+    """True if the company's normalised name starts with any of names, as whole words.
+
+    "Hays Construction and Property" starts with "Hays", but "Haysmith" doesn't.
+    """
+    company = normalise_company(company)
+    if not company:
+        return False
+    for name in names:
+        name = normalise_company(name)
+        if company == name or company.startswith(name + " "):
+            return True
+    return False
+
+
 def normalise_title(title: str) -> str:
     return _simplify(title)
 

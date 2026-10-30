@@ -1,6 +1,12 @@
 import pytest
 
-from grady.normalise import location_parts, normalise_company, normalise_title, same_location
+from grady.normalise import (
+    company_starts_with,
+    location_parts,
+    normalise_company,
+    normalise_title,
+    same_location,
+)
 
 
 # parametrize runs the same test once per row, and reports each row separately.
@@ -33,6 +39,20 @@ def test_normalise_company_keeps_a_name_that_is_only_a_suffix_word():
 
 def test_normalise_company_empty():
     assert normalise_company("") == ""
+
+
+@pytest.mark.parametrize(
+    "company, expected",
+    [
+        ("Hays", True),
+        ("HAYS PLC", True),  # suffix stripped before comparing
+        ("Hays Construction and Property", True),
+        ("Haysmith Ltd", False),  # whole words only
+        ("", False),
+    ],
+)
+def test_company_starts_with(company, expected):
+    assert company_starts_with(company, ["Hays"]) is expected
 
 
 def test_normalise_title_ignores_punctuation_and_case():

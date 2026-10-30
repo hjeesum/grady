@@ -58,6 +58,12 @@ def test_rejection_reasons(settings, make_job):
     assert rejection_reason(make_job(), f) is None
 
 
+def test_blocked_company_is_left_out(settings, make_job):
+    filters = replace(settings.filters, blocked_companies=["itol recruit"])
+    assert rejection_reason(make_job(company="ITOL Recruit"), filters) == "blocked company"
+    assert rejection_reason(make_job(company="Itol Recruit Ltd"), filters) == "blocked company"
+
+
 def test_remote_jobs_dropped_when_remote_not_ok(settings, make_job):
     filters = replace(settings.filters, remote_ok=False)
     assert rejection_reason(make_job(work_mode="remote"), filters) == "remote"

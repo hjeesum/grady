@@ -1,15 +1,22 @@
 # Non-secret settings. Safe to commit. Secrets go in .env.
 
 search:
-  # Each term is sent to the job APIs as a separate search.
+  # Each term is sent to the job APIs as a separate search. The APIs match ALL
+  # the words, so short, broad terms find more. Chosen by measuring how many
+  # sponsor tech jobs each term found in a week (Oct 2026): every term below
+  # found at least one; terms that found none were dropped.
   terms:
-    - graduate software engineer
-    - junior software developer
     - graduate developer
-    - junior data engineer
-    - graduate data analyst
-  # Stop after this many pages (50 jobs each) per term. Caps API usage:
-  # 5 terms x 5 pages = at most 25 requests per run.
+    - graduate software engineer
+    - graduate data
+    - graduate IT
+    - graduate technology
+    - junior developer
+    - junior web developer
+    - junior data analyst
+    - entry level software
+  # Stop after this many pages per term (Adzuna 50 jobs, Reed 100 jobs per page).
+  # Caps API usage: 9 terms x 5 pages = at most 45 requests per source per run.
   max_pages_per_term: 5
   # Only ask for jobs posted in the last N days. We run daily, so older jobs
   # were already seen on a previous run.
@@ -60,6 +67,12 @@ filters:
     - staff
     - head of
     - manager
+  # Companies whose jobs are never emailed. Each entry matches the START of a
+  # company name, like the agency list below.
+  # ITOL Recruit: posts the same "trainee" advert in dozens of places; reported
+  # to be a paid training provider rather than an employer.
+  blocked_companies:
+    - itol recruit
 
 email:
   # The most jobs to list in each section; the email says how many more there are.
@@ -80,6 +93,7 @@ agencies:
     - erin associates
     - ets technical
     - hays
+    - manpower
     - morson
     - noir
     - office angels
@@ -88,6 +102,7 @@ agencies:
     - pertemps
     - randstad
     - reed
+    - robert half
     - sanderson
     - searchability
     - sellick partnership

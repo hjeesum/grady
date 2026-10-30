@@ -25,6 +25,7 @@ class FilterSettings:
     min_salary: int
     include_keywords: list[str]
     exclude_keywords: list[str]
+    blocked_companies: list[str]
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
             # An empty list in YAML ("include_keywords:" with nothing under it) loads as None.
             include_keywords=[k.lower() for k in filters["include_keywords"] or []],
             exclude_keywords=[k.lower() for k in filters["exclude_keywords"] or []],
+            blocked_companies=list(filters["blocked_companies"] or []),
         ),
         email=EmailSettings(
             max_sponsor_jobs=int(raw["email"]["max_sponsor_jobs"]),

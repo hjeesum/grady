@@ -1,6 +1,6 @@
 """Spot recruitment agencies, whose adverts hide the real employer."""
 
-from grady.normalise import normalise_company
+from grady.normalise import company_starts_with, normalise_company
 
 # A company name containing any of these words is treated as an agency.
 AGENCY_WORDS = {
@@ -12,9 +12,7 @@ AGENCY_PHRASES = ["search and selection"]
 
 class AgencyDetector:
     def __init__(self, known_agencies: list[str]):
-        # Normalise the config list the same way as company names, so
-        # "Hays" in config.yaml matches "HAYS" in an advert.
-        self.known = [normalise_company(name) for name in known_agencies]
+        self.known = known_agencies
 
     def is_agency(self, company: str) -> bool:
         name = normalise_company(company)
@@ -24,6 +22,4 @@ class AgencyDetector:
             return True
         if any(phrase in name for phrase in AGENCY_PHRASES):
             return True
-        # Whole-word prefix: "hays" matches "hays construction and property"
-        # but not "haysmith".
-        return any(name == known or name.startswith(known + " ") for known in self.known)
+        return company_starts_with(company, self.known)

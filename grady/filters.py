@@ -4,6 +4,7 @@ import re
 
 from grady.config import FilterSettings
 from grady.models import Job
+from grady.normalise import company_starts_with
 
 
 def contains_word(text: str, phrase: str) -> bool:
@@ -17,6 +18,8 @@ def contains_word(text: str, phrase: str) -> bool:
 
 def rejection_reason(job: Job, filters: FilterSettings) -> str | None:
     """Why this job should be left out of the email, or None if it should be included."""
+    if company_starts_with(job.company, filters.blocked_companies):
+        return "blocked company"
     if any(contains_word(job.title, word) for word in filters.exclude_keywords):
         return "excluded keyword in title"
     if filters.include_keywords and not any(
