@@ -87,5 +87,8 @@ def get_secret(name: str) -> str:
     load_dotenv(PROJECT_ROOT / ".env")
     value = os.environ.get(name)
     if not value:
-        raise RuntimeError(f"Missing secret {name}. Add it to .env (see .env.example).")
+        raise RuntimeError(
+            f"Missing secret {name}. Locally, add it to .env (see .env.example). "
+            "On GitHub, add it under Settings > Secrets and variables > Actions."
+        )
     return value

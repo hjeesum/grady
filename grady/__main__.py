@@ -5,6 +5,7 @@ Run `python -m grady --help` for options.
 """
 
 import argparse
+import sys
 from collections import Counter
 from datetime import date
 
@@ -31,9 +32,11 @@ SOURCES = {
 PREVIEW_PATH = PROJECT_ROOT / "data" / "digest_preview.html"
 
 
-def fetch_and_store(store: JobStore, settings: Settings) -> None:
+def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
+    """Fetch from every source and store new jobs. Returns sources that failed for every term."""
     search = settings.search
     all_jobs = []
+    failures = Counter()
     for term in search.terms:
         for source_name, fetch_all in SOURCES.items():
             try:
@@ -42,6 +45,7 @@ def fetch_and_store(store: JobStore, settings: Settings) -> None:
                 # One source being down shouldn't cost us the others' jobs. Anything
                 # missed is picked up next run, because we ask for several days of jobs.
                 print(f"{source_name:>6} '{term}': FAILED ({error}), skipping")
+                failures[source_name] += 1
                 continue
             print(f"{source_name:>6} '{term}': {len(jobs)} jobs")
             all_jobs.extend(jobs)
@@ -52,6 +56,10 @@ def fetch_and_store(store: JobStore, settings: Settings) -> None:
     print(f"  {result.already_seen} already seen on a previous run")
     print(f"  {result.duplicates} duplicates of a job we already have")
     print(f"New jobs by source: {dict(Counter(job.source for job in result.new_jobs))}")
+
+    # Failing for one term is usually a temporary hiccup. Failing for EVERY term
+    # usually means a setup problem, like a wrong API key.
+    return [name for name, count in failures.items() if count == len(search.terms)]
 
 
 def classify_unchecked(store: JobStore, settings: Settings) -> None:
@@ -84,8 +92,7 @@ def main() -> None:
     # Open the database first, so a database problem stops us before we spend API requests.
     store = JobStore()
 
-    if not args.skip_fetch:
-        fetch_and_store(store, settings)
+    failed_sources = [] if args.skip_fetch else fetch_and_store(store, settings)
     classify_unchecked(store, settings)
 
     today = date.today()
@@ -110,6 +117,12 @@ def main() -> None:
         store.mark_emailed(digest.reported_ids)
         print(f"Email sent; {len(digest.reported_ids)} jobs marked as emailed.")
     store.close()
+
+    # Finish the run first (email sent, database saved), THEN report the problem.
+    # A non-zero exit code makes GitHub Actions mark the run as failed and email you.
+    if failed_sources:
+        sys.exit(f"\nERROR: {', '.join(failed_sources)} failed for every search term. "
+                 "Check the API key.")
 
 
 if __name__ == "__main__":
