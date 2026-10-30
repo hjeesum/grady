@@ -9,7 +9,7 @@ from datetime import datetime
 import requests
 
 from grady.config import get_secret
-from grady.models import Job
+from grady.models import Job, detect_work_mode
 from grady.ratelimit import RateLimiter
 
 # "gb" is the UK endpoint. We send no location ("where") so results cover the whole UK.
@@ -85,12 +85,18 @@ def parse_job(result: dict) -> Job:
         salary_min = _to_int(result.get("salary_min"))
         salary_max = _to_int(result.get("salary_max"))
 
+    title = result["title"].strip()
+    location = result.get("location", {}).get("display_name", "").strip()
+    # Adzuna's "description" is a short snippet of the advert, not the full text.
+    description = result.get("description", "")
+
     return Job(
         source="adzuna",
         source_id=str(result["id"]),
-        title=result["title"].strip(),
+        title=title,
         company=result.get("company", {}).get("display_name", "").strip(),
-        location=result.get("location", {}).get("display_name", "").strip(),
+        location=location,
+        work_mode=detect_work_mode(f"{title} {location} {description}"),
         salary_min=salary_min,
         salary_max=salary_max,
         url=result["redirect_url"],
