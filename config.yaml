@@ -1,29 +1,17 @@
 # Non-secret settings. Safe to commit. Secrets go in .env.
 
 search:
-  # Each term is sent to the job APIs as a separate search. The APIs match ALL
-  # the words, so short, broad terms find more. Chosen by measuring how many
-  # sponsor tech jobs each term found in a week (Oct 2026): every term below
-  # found at least one; terms that found none were dropped.
-  terms:
-    - graduate developer
-    - graduate software engineer
-    - graduate data
-    - graduate IT
-    - graduate technology
-    - junior developer
-    - junior web developer
-    - junior data analyst
-    - entry level software
   # Stop after this many pages per term (Adzuna 50 jobs, Reed 100 jobs per page).
-  # Caps API usage: 9 terms x 5 pages = at most 45 requests per source per run.
   max_pages_per_term: 5
   # Only ask for jobs posted in the last N days. We run daily, so older jobs
   # were already seen on a previous run.
   max_days_old: 7
 
+# Which profile's digest is emailed to EMAIL_TO.
+my_profile: tech
+
 filters:
-  # These filters are applied when building the email. All jobs are still stored.
+  # Shared by every profile. Applied when building the email; all jobs are still stored.
   # Jobs in these cities are listed first in the email. Jobs elsewhere are still included.
   preferred_cities:
     - London
@@ -33,46 +21,216 @@ filters:
   # true: remote jobs are listed near the top, alongside preferred cities.
   # false: remote jobs are left out of the email.
   remote_ok: true
-  # Annual salary in GBP. Jobs whose stated maximum is lower are left out.
-  # Jobs with no salary listed are kept.
-  min_salary: 30000
-  # A job's title must contain at least one of these whole words (case-insensitive).
-  # This keeps out non-tech graduate jobs. Leave the list empty to allow every title.
-  include_keywords:
-    - software
-    - developer
-    - programmer
-    - data
-    - IT
-    - technology
-    - tech
-    - AI
-    - machine learning
-    - ML
-    - cloud
-    - devops
-    - cyber
-    - web
-    - full stack
-    - frontend
-    - backend
-    - python
-    - java
-    - .net
-  # A job is left out if its title contains any of these whole words (case-insensitive).
+  # Left out of every profile if the title contains any of these whole words.
+  # Profiles add their own below. (Not "staff": "Staff Nurse" is an entry-level job.)
   exclude_keywords:
     - senior
     - lead
     - principal
-    - staff
     - head of
-    - manager
+    - director
   # Companies whose jobs are never emailed. Each entry matches the START of a
   # company name, like the agency list below.
   # ITOL Recruit: posts the same "trainee" advert in dozens of places; reported
   # to be a paid training provider rather than an employer.
   blocked_companies:
     - itol recruit
+
+# One profile per kind of job. All profiles' search terms are fetched once per
+# run; each profile then picks its own jobs with its own filters.
+#   terms:            sent to the job APIs. The APIs match ALL the words, so
+#                     short, broad terms find more.
+#   include_keywords: a title must contain at least one (whole words, any case).
+#   exclude_keywords: added to the shared list above.
+#   min_salary:       jobs stating a lower maximum are left out; "not given" is kept.
+profiles:
+  tech:
+    name: Tech
+    # Measured (Oct 2026): each term found at least one sponsor tech job in a week.
+    terms:
+      - graduate developer
+      - graduate software engineer
+      - graduate data
+      - graduate IT
+      - graduate technology
+      - junior developer
+      - junior web developer
+      - junior data analyst
+      - entry level software
+    include_keywords:
+      - software
+      - developer
+      - programmer
+      - data
+      - IT
+      - technology
+      - tech
+      - AI
+      - machine learning
+      - ML
+      - cloud
+      - devops
+      - cyber
+      - web
+      - full stack
+      - frontend
+      - backend
+      - python
+      - java
+      - .net
+    exclude_keywords:
+      - staff  # "Staff Engineer" is a senior tech role
+      - manager
+    min_salary: 30000
+
+  healthcare:
+    name: Healthcare
+    # Starting terms, not yet measured.
+    terms:
+      - newly qualified nurse
+      - band 5 nurse
+      - junior doctor
+      - pharmacist
+      - physiotherapist
+      - radiographer
+    include_keywords:
+      - nurse
+      - nursing
+      - midwife
+      - doctor
+      - physician
+      - pharmacist
+      - physiotherapist
+      - radiographer
+      - paramedic
+      - occupational therapist
+      - dietitian
+      - sonographer
+      - biomedical scientist
+    # Since July 2025, UK rules generally stopped new overseas recruitment into
+    # care-worker roles and raised Skilled Worker jobs to degree level (with some
+    # exceptions). Check gov.uk: these rules change.
+    exclude_keywords:
+      - care worker
+      - carer
+      - support worker
+      - care assistant
+      - healthcare assistant
+      - consultant  # "Consultant" doctors are senior
+      - manager
+      # NHS seniority is shown by pay band, not "senior": Band 5 is entry level
+      # for nurses and allied health roles; Bands 6+ need experience.
+      - band 6
+      - band 7
+      - band 8a
+      - band 8b
+      - band 8c
+      - band 8d
+      - band 9
+      - b6
+      - b7
+      - advanced
+      - specialist
+      - sister
+      - charge nurse
+      - matron
+      - district nurse
+    min_salary: 25000
+
+  engineering:
+    name: Engineering
+    # Starting terms, not yet measured.
+    terms:
+      - graduate engineer
+      - graduate civil engineer
+      - graduate mechanical engineer
+      - graduate electrical engineer
+      - junior engineer
+    include_keywords:
+      - engineer
+      - engineering
+    # Software and data engineers are in the tech profile.
+    exclude_keywords:
+      - software
+      - data
+      - devops
+      - cloud
+      - manager
+    min_salary: 28000
+
+  finance:
+    name: Finance
+    # Starting terms, not yet measured.
+    terms:
+      - graduate accountant
+      - trainee accountant
+      - graduate finance
+      - audit associate
+      - junior accountant
+      - graduate analyst
+    include_keywords:
+      - accountant
+      - accounting
+      - accounts
+      - finance
+      - financial
+      - audit
+      - auditor
+      - tax
+      - actuarial
+      - actuary
+      - investment
+      - banking
+      - treasury
+      - risk
+    exclude_keywords:
+      - controller  # "Financial Controller" is senior
+      - partner
+      - manager
+    min_salary: 28000
+
+  law:
+    name: Law
+    # Starting terms, not yet measured.
+    terms:
+      - trainee solicitor
+      - training contract
+      - paralegal
+      - legal assistant
+      - newly qualified solicitor
+    include_keywords:
+      - solicitor
+      - paralegal
+      - legal
+      - lawyer
+      - barrister
+      - training contract
+      - conveyancer
+      - litigation
+    exclude_keywords:
+      - partner
+      - secretary
+      - manager
+    min_salary: 25000
+
+  graduate_schemes:
+    name: Graduate schemes
+    # Graduate programmes in any field. Starting terms, not yet measured.
+    terms:
+      - graduate scheme
+      - graduate programme
+      - graduate trainee
+      - graduate development programme
+    include_keywords:
+      - graduate scheme
+      - graduate programme
+      - graduate program
+      - graduate development
+      - graduate trainee
+      - graduate training
+      - graduate intake
+    exclude_keywords:
+    min_salary: 25000
 
 email:
   # The most jobs to list in each section; the email says how many more there are.

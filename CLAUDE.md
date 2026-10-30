@@ -48,6 +48,18 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
        Keep README numbers in sync if matching/tests change (88 tests, 17/18 correct, 0 wrong).
 
+## Extension: multiple job types and people (started Oct 2026)
+User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
+Roadmap: (1) profiles [done] -> measure each profile's search terms (needs a fresh
+Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pages
+-> (3) friends' emails via Google Form + private Sheet, per-recipient sent tracking
+-> (4) self-hosting guide in README. Check Adzuna/Reed terms before publishing jobs publicly.
+- config.yaml `profiles:` tech, healthcare, engineering, finance, law, graduate_schemes,
+  all entry level. Shared filters + per-profile include/exclude/min_salary.
+  `my_profile` = whose digest goes to EMAIL_TO. Previews: data/previews/<profile>.html.
+- Only tech terms are measured; the other profiles' terms are unmeasured starting points.
+- emailed_at still tracks only my_profile's email; friends need a per-recipient table.
+
 ## Layout
 - `grady/` — Python package. Run with `python -m grady`.
 - `config.yaml` — non-secret settings (committed).

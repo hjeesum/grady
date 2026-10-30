@@ -13,7 +13,6 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 
 @dataclass(frozen=True)
 class SearchSettings:
-    terms: list[str]
     max_pages_per_term: int
     max_days_old: int
 
@@ -29,6 +28,15 @@ class FilterSettings:
 
 
 @dataclass(frozen=True)
+class Profile:
+    """One kind of job (e.g. tech, healthcare): its searches and its filters."""
+    id: str  # the key in config.yaml, e.g. "tech"
+    name: str  # shown in the email, e.g. "Tech"
+    terms: list[str]
+    filters: FilterSettings  # the shared filters merged with this profile's own
+
+
+@dataclass(frozen=True)
 class EmailSettings:
     max_sponsor_jobs: int
     max_agency_jobs: int
@@ -37,9 +45,26 @@ class EmailSettings:
 @dataclass(frozen=True)
 class Settings:
     search: SearchSettings
-    filters: FilterSettings
+    profiles: dict[str, Profile]
+    my_profile: str  # which profile's digest is emailed to EMAIL_TO
     email: EmailSettings
     known_agencies: list[str]
+
+    @property
+    def all_terms(self) -> list[str]:
+        """Every profile's search terms, each once.
+
+        "Search once, match many": we fetch these once per run, then pick each
+        profile's jobs out of the database. API usage grows with the number of
+        terms, not with the number of profiles or people.
+        """
+        # dict.fromkeys removes duplicates but keeps the original order.
+        return list(dict.fromkeys(t for p in self.profiles.values() for t in p.terms))
+
+
+def _lower_list(value) -> list[str]:
+    # An empty list in YAML ("include_keywords:" with nothing under it) loads as None.
+    return [item.lower() for item in value or []]
 
 
 def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
@@ -51,27 +76,38 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
-    search = raw["search"]
-    filters = raw["filters"]
+    shared = raw["filters"]
+    profiles = {}
+    for profile_id, p in raw["profiles"].items():
+        if not p["terms"]:
+            raise ValueError(f"config.yaml: profile '{profile_id}' needs at least one search term")
+        profiles[profile_id] = Profile(
+            id=profile_id,
+            name=p["name"],
+            terms=list(p["terms"]),
+            filters=FilterSettings(
+                preferred_cities=list(shared["preferred_cities"]),
+                remote_ok=bool(shared["remote_ok"]),
+                min_salary=int(p["min_salary"]),
+                include_keywords=_lower_list(p["include_keywords"]),
+                # Words excluded for every profile, plus this profile's own.
+                exclude_keywords=_lower_list(shared["exclude_keywords"])
+                + _lower_list(p["exclude_keywords"]),
+                blocked_companies=list(shared["blocked_companies"] or []),
+            ),
+        )
 
-    if not search["terms"]:
-        raise ValueError("config.yaml: search.terms must list at least one search term")
+    my_profile = raw["my_profile"]
+    if my_profile not in profiles:
+        raise ValueError(f"config.yaml: my_profile '{my_profile}' isn't one of the profiles")
 
     return Settings(
         search=SearchSettings(
-            terms=list(search["terms"]),
-            max_pages_per_term=int(search["max_pages_per_term"]),
-            max_days_old=int(search["max_days_old"]),
+            max_pages_per_term=int(raw["search"]["max_pages_per_term"]),
+            max_days_old=int(raw["search"]["max_days_old"]),
         ),
-        filters=FilterSettings(
-            preferred_cities=list(filters["preferred_cities"]),
-            remote_ok=bool(filters["remote_ok"]),
-            min_salary=int(filters["min_salary"]),
-            # An empty list in YAML ("include_keywords:" with nothing under it) loads as None.
-            include_keywords=[k.lower() for k in filters["include_keywords"] or []],
-            exclude_keywords=[k.lower() for k in filters["exclude_keywords"] or []],
-            blocked_companies=list(filters["blocked_companies"] or []),
-        ),
+        profiles=profiles,
+        my_profile=my_profile,
         email=EmailSettings(
             max_sponsor_jobs=int(raw["email"]["max_sponsor_jobs"]),
             max_agency_jobs=int(raw["email"]["max_agency_jobs"]),

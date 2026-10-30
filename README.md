@@ -100,10 +100,10 @@ python -m venv .venv
 .venv\Scripts\activate             # Windows; on macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
 copy .env.example .env             # then fill in your keys (macOS/Linux: cp)
-python -m grady --dry-run          # fetch and build data/digest_preview.html without sending
+python -m grady --dry-run          # fetch, and build a preview per profile in data/previews/, without sending
 ```
 
-Search terms, preferred cities, salary and keyword filters live in [`config.yaml`](config.yaml).
+Search terms, preferred cities, salary and keyword filters live in [`config.yaml`](config.yaml), as **profiles**: tech, healthcare, engineering, finance, law and graduate schemes. Every profile's search terms are fetched once per run, and each profile then picks its own jobs with its own filters, so API usage grows with the number of search terms, not the number of profiles. `my_profile` chooses which digest is emailed.
 
 To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`, `SMTP_USER`, `SMTP_PASSWORD` (a Gmail App Password) and `EMAIL_TO` as repository secrets.
 

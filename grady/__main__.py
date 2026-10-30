@@ -1,6 +1,7 @@
 """Entry point for `python -m grady`.
 
-Fetches jobs, stores the new ones, checks sponsorship, and emails a digest of new jobs.
+Fetches jobs for every profile's search terms, stores the new ones, checks
+sponsorship, saves a preview digest per profile, and emails your profile's digest.
 Run `python -m grady --help` for options.
 """
 
@@ -29,15 +30,17 @@ SOURCES = {
     "reed": reed.fetch_all,
 }
 
-PREVIEW_PATH = PROJECT_ROOT / "data" / "digest_preview.html"
+PREVIEWS_DIR = PROJECT_ROOT / "data" / "previews"
 
 
 def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
     """Fetch from every source and store new jobs. Returns sources that failed for every term."""
     search = settings.search
+    terms = settings.all_terms
+    print(f"Searching {len(terms)} terms across {len(settings.profiles)} profiles.")
     all_jobs = []
     failures = Counter()
-    for term in search.terms:
+    for term in terms:
         for source_name, fetch_all in SOURCES.items():
             try:
                 jobs = fetch_all(term, search.max_pages_per_term, search.max_days_old)
@@ -59,7 +62,7 @@ def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
 
     # Failing for one term is usually a temporary hiccup. Failing for EVERY term
     # usually means a setup problem, like a wrong API key.
-    return [name for name, count in failures.items() if count == len(search.terms)]
+    return [name for name, count in failures.items() if count == len(terms)]
 
 
 def classify_unchecked(store: JobStore, settings: Settings) -> None:
@@ -95,15 +98,24 @@ def main() -> None:
     failed_sources = [] if args.skip_fetch else fetch_and_store(store, settings)
     classify_unchecked(store, settings)
 
+    # Build every profile's digest from the same stored jobs, and save each as a
+    # preview. (For now only my_profile is emailed; emailed_at tracks that email.)
     today = date.today()
-    digest = build_digest(store.jobs_to_email(), settings)
-    html = render_html(digest, settings, today)
-    PREVIEW_PATH.write_text(html, encoding="utf-8")
-    print(f"\nDigest: {len(digest.sponsor.jobs)} sponsor jobs (+{digest.sponsor.more} more), "
-          f"{len(digest.agency.jobs)} agency jobs (+{digest.agency.more} more)")
-    print(f"Left out by filters: {dict(digest.filtered_out)}")
-    print(f"Preview saved to {PREVIEW_PATH}")
+    stored_jobs = store.jobs_to_email()
+    PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
+    print("\nDigests:")
+    digests = {}
+    for profile in settings.profiles.values():
+        digest = build_digest(stored_jobs, profile, settings.email)
+        (PREVIEWS_DIR / f"{profile.id}.html").write_text(render_html(digest, today), encoding="utf-8")
+        print(f"  {profile.name:<17} {len(digest.sponsor.all_jobs):>3} sponsor jobs, "
+              f"{len(digest.agency.all_jobs):>3} agency jobs")
+        digests[profile.id] = digest
+    print(f"Previews saved in {PREVIEWS_DIR}")
 
+    digest = digests[settings.my_profile]
+    html = render_html(digest, today)
+    print(f"\nYour email ({digest.profile_name}): left out by filters: {dict(digest.filtered_out)}")
     if args.dry_run:
         print("Dry run: email not sent.")
     elif digest.is_empty:

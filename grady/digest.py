@@ -7,7 +7,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from grady.config import Settings
+from grady.config import EmailSettings, Profile
 from grady.filters import rejection_reason
 from grady.models import Job, StoredJob
 from grady.normalise import same_location
@@ -33,6 +33,8 @@ class Section:
 
 @dataclass
 class Digest:
+    profile_name: str  # e.g. "Tech"
+    preferred_cities: list[str]  # marked with a star in the email
     sponsor: Section
     agency: Section
     filtered_out: Counter  # reason -> number of jobs left out for that reason
@@ -51,8 +53,8 @@ class Digest:
         return [s.id for s in self.sponsor.all_jobs + self.agency.all_jobs]
 
 
-def build_digest(stored_jobs: list[StoredJob], settings: Settings) -> Digest:
-    filters = settings.filters
+def build_digest(stored_jobs: list[StoredJob], profile: Profile, email: EmailSettings) -> Digest:
+    filters = profile.filters
     kept = []
     filtered_out = Counter()
     for stored in stored_jobs:
@@ -78,8 +80,10 @@ def build_digest(stored_jobs: list[StoredJob], settings: Settings) -> Digest:
         return Section(all_jobs=jobs, cap=cap)
 
     return Digest(
-        sponsor=section("sponsor", settings.email.max_sponsor_jobs),
-        agency=section("agency", settings.email.max_agency_jobs),
+        profile_name=profile.name,
+        preferred_cities=filters.preferred_cities,
+        sponsor=section("sponsor", email.max_sponsor_jobs),
+        agency=section("agency", email.max_agency_jobs),
         filtered_out=filtered_out,
     )
 
@@ -100,10 +104,11 @@ def format_salary(job: Job) -> str:
 
 def subject(digest: Digest, today: date) -> str:
     count = len(digest.sponsor.all_jobs)
-    return f"Grady: {count} new sponsor job{'s' if count != 1 else ''} – {today:%d %b %Y}"
+    return (f"Grady {digest.profile_name}: {count} new sponsor job{'s' if count != 1 else ''}"
+            f" – {today:%d %b %Y}")
 
 
-def render_html(digest: Digest, settings: Settings, today: date) -> str:
+def render_html(digest: Digest, today: date) -> str:
     # autoescape=True turns characters like < and & in job data into safe HTML,
     # so text from an API can never break or inject into the email.
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
@@ -113,7 +118,7 @@ def render_html(digest: Digest, settings: Settings, today: date) -> str:
         subject=subject(digest, today),
         today=today,
         format_salary=format_salary,
-        is_preferred=lambda job: is_preferred_city(job, settings.filters.preferred_cities),
+        is_preferred=lambda job: is_preferred_city(job, digest.preferred_cities),
     )
 
 
