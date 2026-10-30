@@ -1,0 +1,3 @@
+# Everything the tool needs, plus tools only used while developing and testing.
+-r requirements.txt
+pytest==9.2.0

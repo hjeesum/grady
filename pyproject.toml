@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# Look for tests in tests/, and let them `import grady` from the project root.
+testpaths = ["tests"]
+pythonpath = ["."]

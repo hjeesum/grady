@@ -30,7 +30,8 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        words was tried and made results worse (e.g. Express Solicitors = Express Solutions).
    Original plan: gov.uk Register of Licensed Sponsors (Workers) CSV, normalise names
        (lowercase, strip Ltd/Limited/PLC...), rapidfuzz with a tested threshold.
-6. [ ] Tests (pytest): normalisation, fuzzy matching, de-dup especially.
+6. [x] Tests (pytest): normalisation, matching, de-dup, storage/migration, agencies, parsing.
+       The labelled-set test only runs when data/sponsors/register.csv exists.
 7. [ ] Email digest: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
 8. [ ] GitHub Actions: tests on push, daily scheduled run, secrets via GitHub Secrets.
 9. [ ] README: problem, how it works, screenshot, challenges (name matching), future work.
@@ -43,5 +44,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
 
 ## Commands (Windows, PowerShell)
 - Activate venv: `.venv\Scripts\Activate.ps1`
-- Install deps: `pip install -r requirements.txt`
+- Install deps: `pip install -r requirements-dev.txt` (includes pytest)
 - Run: `python -m grady`
+- Test: `python -m pytest`
+- Re-check sponsor matching: `python -m scripts.evaluate_matching`
