@@ -106,4 +106,5 @@ def parse_job(result: dict) -> Job:
 
 
 def _to_int(value) -> int | None:
-    return int(value) if value is not None else None
+    # Some adverts give a salary of 0, which means "not stated", not "unpaid".
+    return int(value) if value else None

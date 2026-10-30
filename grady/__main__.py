@@ -10,6 +10,8 @@ from grady.storage import JobStore
 def main() -> None:
     settings = load_settings()
     search = settings.search
+    # Open the database first, so a database problem stops us before we spend API requests.
+    store = JobStore()
 
     all_jobs = []
     for term in search.terms:
@@ -17,11 +19,13 @@ def main() -> None:
         print(f"'{term}': {len(jobs)} jobs")
         all_jobs.extend(jobs)
 
-    store = JobStore()
-    new_jobs = store.save_new(all_jobs)
-    print(f"\nFetched {len(all_jobs)} jobs, {len(new_jobs)} are new.")
+    result = store.save_new(all_jobs)
+    print(f"\nFetched {len(all_jobs)} jobs:")
+    print(f"  {len(result.new_jobs)} new")
+    print(f"  {result.already_seen} already seen on a previous run")
+    print(f"  {result.duplicates} duplicates of a job we already have")
     print(f"Database now holds {store.count()} jobs.")
-    print(f"Work mode of new jobs: {dict(Counter(job.work_mode for job in new_jobs))}")
+    print(f"Work mode of new jobs: {dict(Counter(job.work_mode for job in result.new_jobs))}")
     store.close()
 
 
