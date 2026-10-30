@@ -3,32 +3,20 @@
 API docs: https://developer.adzuna.com/docs/search
 """
 
-import time
 from datetime import datetime
 
-import requests
-
 from grady.config import get_secret
+from grady.http_utils import get_with_retries
 from grady.models import Job, detect_work_mode
 from grady.ratelimit import RateLimiter
 
 # "gb" is the UK endpoint. We send no location ("where") so results cover the whole UK.
 SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/gb/search/{page}"
 RESULTS_PER_PAGE = 50  # the maximum Adzuna allows per request
-TIMEOUT_SECONDS = 30
 
 # Adzuna's free tier allows about 25 requests per minute. One request every
 # 2.5 seconds keeps us safely under that.
 _rate_limiter = RateLimiter(min_interval_seconds=2.5)
-
-# Retry "too many requests" (429) and server errors (5xx), which are usually
-# temporary. Other errors, like a wrong API key (401), won't fix themselves.
-MAX_ATTEMPTS = 3
-BACKOFF_SECONDS = 5  # wait 5s, then 10s
-
-
-class AdzunaError(Exception):
-    pass
 
 
 def fetch_all(term: str, max_pages: int, max_days_old: int) -> list[Job]:
@@ -54,25 +42,10 @@ def fetch_page(term: str, page: int, max_days_old: int) -> list[Job]:
         "max_days_old": max_days_old,
         "sort_by": "date",
     }
-    response = _get_with_retries(SEARCH_URL.format(page=page), params, f"'{term}' page {page}")
+    response = get_with_retries(
+        SEARCH_URL.format(page=page), params, _rate_limiter, f"Adzuna '{term}' page {page}"
+    )
     return [parse_job(result) for result in response.json()["results"]]
-
-
-def _get_with_retries(url: str, params: dict, description: str) -> requests.Response:
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        _rate_limiter.wait()
-        response = requests.get(url, params=params, timeout=TIMEOUT_SECONDS)
-        if response.status_code == 200:
-            return response
-
-        # Don't use response.raise_for_status(): its error message includes the full
-        # URL, which contains our API key, and that would end up in logs.
-        retryable = response.status_code == 429 or response.status_code >= 500
-        if not retryable or attempt == MAX_ATTEMPTS:
-            raise AdzunaError(f"Adzuna returned HTTP {response.status_code} for {description}")
-
-        # Exponential backoff: wait longer after each failed attempt.
-        time.sleep(BACKOFF_SECONDS * 2 ** (attempt - 1))
 
 
 def parse_job(result: dict) -> Job:

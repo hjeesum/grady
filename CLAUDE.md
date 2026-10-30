@@ -13,12 +13,14 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
 ## Plan (mark steps done as they land)
 1. [x] Setup: venv, requirements.txt, `.env` for secrets (gitignored, `.env.example` committed),
        `config.yaml` for settings, `grady/config.py` loader.
-2. [~] Fetcher: Adzuna done (UK endpoint, no location filter, pagination, rate limit, retries).
-       Reed API still to add (after step 4).
+2. [x] Fetcher: Adzuna + Reed (pagination, rate limit, retries in http_utils.py).
+       Reed locations are often postcodes -> converted to place names via postcodes.io.
 3. [x] Storage: SQLite (title, company, location, remote/hybrid, salary, link, source, date found).
 4. [x] De-duplication across pages and sources: normalised company + title, locations sharing a part.
    - Not yet built: applying config filters (exclude_keywords, min_salary); search also returns
      non-tech graduate jobs (consider Adzuna `category=it-jobs`).
+   - Many Reed adverts are from recruitment agencies (Itol Recruit, Penguin Recruitment, Noir),
+     which hide the real employer. Decide how to handle these in step 5.
 5. [ ] Sponsor matching: gov.uk Register of Licensed Sponsors (Workers) CSV, normalise names
        (lowercase, strip Ltd/Limited/PLC...), rapidfuzz with a tested threshold.
 6. [ ] Tests (pytest): normalisation, fuzzy matching, de-dup especially.

@@ -13,8 +13,9 @@ COMPANY_SUFFIXES = {
     "corp", "corporation", "co", "company", "holdings", "group", "uk", "gb",
 }
 
-# Words that make the same place look different: "Central London", "Greater Manchester".
-LOCATION_NOISE = re.compile(r"\b(central|greater|city centre|city of)\b")
+# Words that make the same place look different: "Central London", "Greater Manchester",
+# "Glasgow City" (postcodes.io) vs "Glasgow City Centre" (Adzuna).
+LOCATION_NOISE = re.compile(r"\b(central|greater|city centre|city of|city)\b")
 
 
 def _simplify(text: str) -> str:
