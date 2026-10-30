@@ -28,6 +28,7 @@ filters:
   # Jobs with no salary listed are kept.
   min_salary: 30000
   # A job is dropped if its title contains any of these (case-insensitive).
+  # (Applied when building the email.)
   exclude_keywords:
     - senior
     - lead
@@ -35,3 +36,32 @@ filters:
     - staff
     - head of
     - manager
+
+agencies:
+  # Recruitment agencies hide the real employer, so we can't check sponsorship.
+  # Their jobs go in a separate "check sponsorship yourself" section of the email.
+  # Names containing words like "recruitment" or "staffing" are detected
+  # automatically; list here the agencies whose names don't say so.
+  # Each entry matches the START of a company name: "hays" also covers
+  # "Hays Construction and Property".
+  known_names:
+    - bristow holland
+    - candidate source
+    - chapman tate
+    - erin associates
+    - ets technical
+    - hays
+    - morson
+    - noir
+    - office angels
+    - oscar technology
+    - oxford knight
+    - pertemps
+    - randstad
+    - reed
+    - sanderson
+    - searchability
+    - sellick partnership
+    - sr2
+    - talent international
+    - thorn baker

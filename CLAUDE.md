@@ -21,7 +21,10 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
      non-tech graduate jobs (consider Adzuna `category=it-jobs`).
    - Many Reed adverts are from recruitment agencies (Itol Recruit, Penguin Recruitment, Noir),
      which hide the real employer. Decide how to handle these in step 5.
-5. [~] Sponsor matching (5a register download + 5b matcher done; 5c pipeline + agencies next).
+5. [x] Sponsor matching. Each job gets sponsor_status "sponsor" / "agency" / "not_sponsor".
+       Agencies (keywords + config.yaml known_names) are checked BEFORE sponsor matching;
+       user chose: show agency jobs in a separate "check sponsorship yourself" email section.
+       DB schema changes go through MIGRATIONS in storage.py (don't make the user delete the db).
        Matcher = exact -> unique word-prefix -> rapidfuzz ratio >= 95. Re-check with
        `python -m scripts.evaluate_matching` after any matching change. Stripping generic
        words was tried and made results worse (e.g. Express Solicitors = Express Solutions).

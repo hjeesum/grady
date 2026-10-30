@@ -30,6 +30,7 @@ class FilterSettings:
 class Settings:
     search: SearchSettings
     filters: FilterSettings
+    known_agencies: list[str]
 
 
 def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
@@ -59,6 +60,7 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
             min_salary=int(filters["min_salary"]),
             exclude_keywords=[k.lower() for k in filters["exclude_keywords"]],
         ),
+        known_agencies=list(raw["agencies"]["known_names"]),
     )
 
 

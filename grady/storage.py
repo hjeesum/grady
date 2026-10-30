@@ -11,8 +11,9 @@ from grady.normalise import normalise_company, normalise_title, same_location
 
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "jobs.db"
 
-# Bump this whenever SCHEMA changes, so an old database file is detected.
-SCHEMA_VERSION = 2
+# Bump this whenever SCHEMA changes, and add a step to MIGRATIONS so existing
+# database files are upgraded instead of having to be deleted.
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -30,12 +31,22 @@ CREATE TABLE IF NOT EXISTS jobs (
     first_seen_at TEXT NOT NULL,  -- when our tool first found it
     company_norm  TEXT NOT NULL,  -- normalised, for de-duplication
     title_norm    TEXT NOT NULL,
+    sponsor_status TEXT,          -- "sponsor", "agency", "not_sponsor"; NULL = not checked yet
+    sponsor_name   TEXT,          -- the matching name on the sponsor register
     -- The same advert must never be stored twice from the same source.
     UNIQUE (source, source_id)
 );
 -- Makes the duplicate lookup fast: it searches by these two columns.
 CREATE INDEX IF NOT EXISTS idx_jobs_dedup ON jobs (company_norm, title_norm);
 """
+
+# MIGRATIONS[n] upgrades a version-n database to version n + 1.
+MIGRATIONS = {
+    2: """
+        ALTER TABLE jobs ADD COLUMN sponsor_status TEXT;
+        ALTER TABLE jobs ADD COLUMN sponsor_name TEXT;
+    """,
+}
 
 
 @dataclass
@@ -57,14 +68,21 @@ class JobStore:
         has_jobs_table = self.conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jobs'"
         ).fetchone()
-        is_new_file = version == 0 and not has_jobs_table
-        if not is_new_file and version != SCHEMA_VERSION:
-            raise RuntimeError(
-                f"{path} uses an old schema (version {version}). "
-                "Delete the file and run again to rebuild it."
-            )
-        self.conn.executescript(SCHEMA)
-        self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        if version == 0 and not has_jobs_table:
+            self.conn.executescript(SCHEMA)
+            self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            return
+
+        # Upgrade one version at a time: 2 -> 3 -> 4 ...
+        while version < SCHEMA_VERSION:
+            if version not in MIGRATIONS:
+                raise RuntimeError(
+                    f"{path} uses schema version {version}, which can't be upgraded. "
+                    "Delete the file and run again to rebuild it."
+                )
+            self.conn.executescript(MIGRATIONS[version])
+            version += 1
+            self.conn.execute(f"PRAGMA user_version = {version}")
 
     def save_new(self, jobs: list[Job]) -> SaveResult:
         """Insert jobs we haven't seen before, skipping duplicates."""
@@ -119,6 +137,30 @@ class JobStore:
                 normalise_company(job.company), normalise_title(job.title),
             ),
         )
+
+    def companies_to_classify(self) -> list[str]:
+        """Companies with at least one job whose sponsor status hasn't been checked yet."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT company FROM jobs WHERE sponsor_status IS NULL"
+        ).fetchall()
+        return [company for (company,) in rows]
+
+    def set_sponsor_status(self, statuses: dict[str, tuple[str, str | None]]) -> None:
+        """Save {company: (status, register name or None)} for all unchecked jobs."""
+        with self.conn:
+            self.conn.executemany(
+                """
+                UPDATE jobs SET sponsor_status = ?, sponsor_name = ?
+                WHERE company = ? AND sponsor_status IS NULL
+                """,
+                [(status, name, company) for company, (status, name) in statuses.items()],
+            )
+
+    def count_by_sponsor_status(self) -> dict[str, int]:
+        rows = self.conn.execute(
+            "SELECT sponsor_status, COUNT(*) FROM jobs GROUP BY sponsor_status"
+        ).fetchall()
+        return dict(rows)
 
     def count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
