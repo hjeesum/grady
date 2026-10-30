@@ -1,0 +1,31 @@
+# Non-secret settings. Safe to commit. Secrets go in .env.
+
+search:
+  # Each term is sent to the job APIs as a separate search.
+  terms:
+    - graduate software engineer
+    - junior software developer
+    - graduate developer
+    - junior data engineer
+    - graduate data analyst
+
+filters:
+  # Jobs in these cities are listed first in the digest. Jobs elsewhere are still kept.
+  preferred_cities:
+    - London
+    - Manchester
+    - Edinburgh
+    - Bristol
+  # Keep remote jobs even if they are not in a preferred city.
+  remote_ok: true
+  # Annual salary in GBP. Jobs that state a lower maximum salary are dropped.
+  # Jobs with no salary listed are kept.
+  min_salary: 30000
+  # A job is dropped if its title contains any of these (case-insensitive).
+  exclude_keywords:
+    - senior
+    - lead
+    - principal
+    - staff
+    - head of
+    - manager
