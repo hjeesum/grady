@@ -42,7 +42,9 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        manual "Run workflow" button). jobs.db persists on a one-commit "data" branch
        (restored at start, force-pushed at end). Repo hjeesum/grady is private.
        Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.
-9. [ ] README: problem, how it works, screenshot, challenges (name matching), future work.
+9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
+       regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
+       Keep README numbers in sync if matching/tests change (88 tests, 17/18 correct, 0 wrong).
 
 ## Layout
 - `grady/` — Python package. Run with `python -m grady`.
