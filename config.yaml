@@ -8,6 +8,12 @@ search:
     - graduate developer
     - junior data engineer
     - graduate data analyst
+  # Stop after this many pages (50 jobs each) per term. Caps API usage:
+  # 5 terms x 5 pages = at most 25 requests per run.
+  max_pages_per_term: 5
+  # Only ask for jobs posted in the last N days. We run daily, so older jobs
+  # were already seen on a previous run.
+  max_days_old: 7
 
 filters:
   # Jobs in these cities are listed first in the digest. Jobs elsewhere are still kept.

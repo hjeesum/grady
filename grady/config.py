@@ -14,6 +14,8 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 @dataclass(frozen=True)
 class SearchSettings:
     terms: list[str]
+    max_pages_per_term: int
+    max_days_old: int
 
 
 @dataclass(frozen=True)
@@ -46,7 +48,11 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
         raise ValueError("config.yaml: search.terms must list at least one search term")
 
     return Settings(
-        search=SearchSettings(terms=list(search["terms"])),
+        search=SearchSettings(
+            terms=list(search["terms"]),
+            max_pages_per_term=int(search["max_pages_per_term"]),
+            max_days_old=int(search["max_days_old"]),
+        ),
         filters=FilterSettings(
             preferred_cities=list(filters["preferred_cities"]),
             remote_ok=bool(filters["remote_ok"]),
