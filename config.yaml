@@ -87,6 +87,12 @@ profiles:
     exclude_keywords:
       - staff  # "Staff Engineer" is a senior tech role
       - manager
+      # Matched "data"/"tech" but aren't developer roles (seen in real results):
+      # "Technical Product Owner", "Interim Financial Controller".
+      - product owner
+      - interim
+    # No maximum salary: tried 60000 (Oct 2026), but it removed real junior jobs,
+    # and top graduate jobs (quant firms, big tech) pay well above that.
     min_salary: 30000
 
   healthcare:

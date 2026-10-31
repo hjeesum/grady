@@ -39,6 +39,8 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        Search terms chosen by measurement (Oct 2026): useful sponsor tech jobs/week went 4 -> 14.
        Adzuna category=it-jobs was tested and rejected: it hides graduate schemes.
        filters.blocked_companies (ITOL Recruit) hides a company entirely.
+       Tech excludes "product owner", "interim" (false positives seen in real data). A max
+       salary cap (60k) was tested and rejected: it dropped real junior jobs / top grad pay.
    Original plan: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
 8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (07:00 UTC +
        manual "Run workflow" button). jobs.db persists on a one-commit "data" branch

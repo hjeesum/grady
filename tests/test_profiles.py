@@ -41,6 +41,9 @@ def test_shared_filters_apply_to_every_profile(settings):
     [
         ("tech", "Graduate Software Engineer", True),
         ("tech", "Staff Engineer", False),  # senior in tech
+        ("tech", "Technical Product Owner - Fixed Income Data", False),
+        ("tech", "Interim Financial Controller | Hardware Deep Tech", False),
+        ("tech", "Junior Data Quality Analyst", True),
         ("healthcare", "Staff Nurse", True),  # entry level in nursing
         ("healthcare", "Newly Qualified Nurse - Band 5", True),
         ("healthcare", "Healthcare Assistant", False),
