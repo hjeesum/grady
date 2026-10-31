@@ -9,10 +9,14 @@ Which companies to fetch is listed in config.yaml; scripts/find_boards.py finds
 a company's board and checks it's a sponsor before you add it.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+import requests
+
+from grady.config import BoardCompany
 from grady.filters import contains_word
-from grady.http_utils import get_with_retries
+from grady.http_utils import ApiError, get_with_retries
 from grady.models import Job, detect_work_mode
 from grady.ratelimit import RateLimiter
 
@@ -27,9 +31,10 @@ PARAMS = {
     "ashby": {},
 }
 
-# One request per company, and these APIs serve public careers pages, so a
-# shorter gap than the search APIs is still polite.
-_rate_limiter = RateLimiter(min_interval_seconds=1.0)
+# One rate limiter per system: each system's requests are spaced out, and the
+# three systems are fetched in parallel (see fetch_boards). One request per
+# company, and these APIs serve public careers pages, so half a second is polite.
+_rate_limiters = {ats: RateLimiter(min_interval_seconds=0.5) for ats in URLS}
 
 # Greenhouse has no country field, so UK jobs are recognised from the location
 # text. ("Cambridge, MA" would slip through; rare enough to accept.)
@@ -45,6 +50,30 @@ UK_PLACES = [
 NOT_UK = ["new south wales", "new england"]
 
 
+def fetch_boards(
+    companies: list[BoardCompany], entry_level_keywords: list[str]
+) -> list[tuple[BoardCompany, list[Job] | Exception]]:
+    """Fetch many boards. Returns (company, its jobs) or (company, the error) for each.
+
+    One thread per system, so a slow one (Lever can take seconds per answer)
+    doesn't hold up the others. Each thread uses only its own system's rate limiter.
+    """
+    def fetch_system(ats: str):
+        results = []
+        for company in companies:
+            if company.ats != ats:
+                continue
+            try:
+                results.append((company, fetch_board(ats, company.token, company.name,
+                                                     entry_level_keywords)))
+            except (ApiError, requests.RequestException) as error:
+                results.append((company, error))
+        return results
+
+    with ThreadPoolExecutor(max_workers=len(URLS)) as pool:
+        return [result for results in pool.map(fetch_system, URLS) for result in results]
+
+
 def fetch_board(ats: str, token: str, company: str, entry_level_keywords: list[str]) -> list[Job]:
     """All UK entry-level jobs on one company's board."""
     jobs = fetch_uk_jobs(ats, token, company)
@@ -58,7 +87,7 @@ def fetch_uk_jobs(ats: str, token: str, company: str) -> list[Job]:
     Ashby don't return a company name).
     """
     response = get_with_retries(
-        URLS[ats].format(token=token), PARAMS[ats], _rate_limiter, f"{ats} board '{token}'"
+        URLS[ats].format(token=token), PARAMS[ats], _rate_limiters[ats], f"{ats} board '{token}'"
     )
     return parse_board(ats, token, company, response.json())
 

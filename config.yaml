@@ -269,6 +269,14 @@ boards:
     - trainee
     - apprentice
     - apprenticeship
+  # Boards that scripts/discover_boards.py matched to the wrong company: the
+  # register company has the same one-word name as a different firm's board.
+  # Found by checking the discovered list by hand (Oct 2026). Format: ats:token
+  wrong_boards:
+    - ashby:academia      # Academia Ltd (UK IT reseller) vs Academia.edu
+    - greenhouse:prophet  # Prophet plc (Leeds software) vs Prophet (brand consultancy)
+    - ashby:perk          # Perk UK Ltd (since 1999) vs Perk, formerly TravelPerk
+    - ashby:harmonic      # Harmonic (UK), video tech, vs Harmonic, the AI company
   # Checked with find_boards (Oct 2026): each has a board with UK jobs, and the
   # name matches the sponsor register. Use the legal name when the brand is
   # ambiguous ("Elastic" matched a different company, Elastic Path Software).

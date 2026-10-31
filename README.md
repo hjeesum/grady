@@ -14,7 +14,7 @@ The UK government publishes the [Register of Licensed Sponsors](https://www.gov.
 
 Every morning, a GitHub Actions workflow:
 
-1. **Searches** the Adzuna and Reed job APIs across the whole UK, NHS Jobs for healthcare, and the job boards of 39 sponsor companies.
+1. **Searches** the Adzuna and Reed job APIs across the whole UK, NHS Jobs for healthcare, and the job boards of 325 tech companies on the sponsor register.
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
@@ -94,6 +94,10 @@ The company list starts from the sponsor register, not from the boards. [`script
 
 On the first day, 39 checked companies gave 18 graduate tech jobs at sponsors (Palantir, Stripe, Deliveroo, Graphcore and others), more than Adzuna and Reed found in a week.
 
+**Finding companies automatically.** Picking companies by hand doesn't scale, and the register has no industry column. But Companies House publishes a free monthly file of every UK company with its industry (SIC) codes and accounts category. [`scripts/find_tech_sponsors.py`](scripts/find_tech_sponsors.py) joins it with the register: 81% of register names are found, and 3,240 are tech companies (SIC 62, 63, 58290) big enough to file more than micro-entity accounts. [`scripts/discover_boards.py`](scripts/discover_boards.py) then probed all of them, about 20,000 requests, with one thread per system and resumable progress, and found 286 more boards.
+
+Guessing a board from a company's first word was the weak point: `Quantum Metric` found the board of a price-comparison company called Quantum, and `Cursor Controls` (UK hardware) found Cursor (AI). The fix is the sponsor matcher's rule again: guess the first word only if **exactly one** register company starts with it. That removed every false match I found, at the cost of some real ones (Stripe, Snowflake). Four remaining one-word clashes, such as `Prophet plc` vs Prophet the consultancy, are listed in `wrong_boards` in the config after checking by hand.
+
 ### 6. Running unattended
 
 - **No server, and no database between runs.** Each GitHub Actions run starts on a fresh machine, so the SQLite file lives on a separate one-commit `data` branch: restored at the start of a run, saved at the end.
@@ -102,7 +106,7 @@ On the first day, 39 checked companies gave 18 graduate tech jobs at sponsors (P
 
 ## Testing
 
-145 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+158 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 
@@ -136,7 +140,8 @@ To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`
 
 - Re-check previously rejected companies when the sponsor register updates.
 - Match the remaining NHS naming variants (e.g. "… Hospital NHS Foundation Trust", Welsh health boards), adding them to the labelled set first.
-- Grow the company board list automatically from the sponsor register, and read board salaries where given.
+- Discover fintech and research labs too (SIC 64, 66, 72), measured first; read board salaries where given.
+- More board systems (SmartRecruiters, Workable, Recruitee, Personio) and job-alert emails via the Gmail API.
 - Use full advert text to spot "no sponsorship available" phrases.
 - Check roles against Skilled Worker salary thresholds and occupation codes.
 - Tune search terms and use each API's IT category, to bring in more tech roles.

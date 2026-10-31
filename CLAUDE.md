@@ -75,8 +75,12 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
       file (no API key; ~470 MB in data/companies_house/) -> SIC 62/63/58290 + accounts
       category SMALL or bigger -> data/discovery/tech_sponsors.csv (3,240 companies).
       Finds 27 of the 39 hand-picked; misses fintech (SIC 64/66), R&D labs (72), retail.
-  (b) next: probe all of them for boards at scale (cache, resume, verify the board is
-      really that company), write a generated board list loaded alongside config.yaml.
+  (b) [done] scripts/discover_boards.py probes all of them (threads per system, Lever x4
+      because it's slow; cache data/discovery/probe_cache.json) -> boards_discovered.yaml
+      (GENERATED, committed, 286 boards; config.py loads it after config.yaml's hand list,
+      hand list wins). Accept = UK jobs + company name in board text + first-word guesses
+      only when the word is unique on the register. config `boards.wrong_boards` = hand-found
+      false matches. Daily fetch: boards.fetch_boards, one thread per system (~5 min).
   Later options discussed: more ATS (SmartRecruiters, Workable, Recruitee, Personio,
   Teamtailor), job-alert emails via Gmail API (LinkedIn etc. without scraping),
   Workday JSON (light scraping of employers' own sites). Never scrape LinkedIn/Indeed.

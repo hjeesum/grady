@@ -74,3 +74,21 @@ def test_board_companies_are_listed_once(settings):
     boards = [(c.ats, c.token) for c in settings.boards.companies]
     assert len(boards) == len(set(boards))
     assert "graduate" in settings.boards.entry_level_keywords
+
+
+def test_discovered_boards_are_added_after_hand_checked_ones(tmp_path):
+    from grady.config import DEFAULT_CONFIG_PATH
+    config = tmp_path / "config.yaml"
+    config.write_text(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    (tmp_path / "boards_discovered.yaml").write_text(
+        "companies:\n"
+        "  - {name: Palantir Technologies, ats: lever, token: palantir}\n"  # also hand-checked
+        "  - {name: Example Software, ats: ashby, token: example}\n"
+        "  - {name: Academia Limited, ats: ashby, token: academia}\n",  # in wrong_boards
+        encoding="utf-8",
+    )
+    companies = load_settings(config).boards.companies
+    palantir = [c for c in companies if c.token == "palantir"]
+    assert len(palantir) == 1 and palantir[0].name == "Palantir" and not palantir[0].discovered
+    assert companies[-1].token == "example" and companies[-1].discovered
+    assert "academia" not in [c.token for c in companies]

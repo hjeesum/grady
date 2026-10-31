@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
+# Written by scripts/discover_boards.py; read next to config.yaml if it exists.
+DISCOVERED_BOARDS_FILE = "boards_discovered.yaml"
 
 # Sources a profile searches when config.yaml doesn't list any.
 DEFAULT_SOURCES = ["adzuna", "reed"]
@@ -51,12 +53,14 @@ class BoardCompany:
     name: str  # used for sponsor matching, so ideally the name on the register
     ats: str  # "greenhouse", "lever" or "ashby"
     token: str  # the company's board name in that system, e.g. "monzo"
+    discovered: bool = False  # True: from boards_discovered.yaml, not checked by hand
 
 
 @dataclass(frozen=True)
 class BoardSettings:
     entry_level_keywords: list[str]  # a board job's title must contain one
     companies: list[BoardCompany]
+    wrong_boards: list[str]  # "ats:token" boards discovery matched to the wrong company
 
 
 @dataclass(frozen=True)
@@ -133,19 +137,30 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
             max_agency_jobs=int(raw["email"]["max_agency_jobs"]),
         ),
         known_agencies=list(raw["agencies"]["known_names"]),
-        boards=_load_boards(raw["boards"]),
+        boards=_load_boards(raw["boards"], path.parent / DISCOVERED_BOARDS_FILE),
     )
 
 
-def _load_boards(raw: dict) -> BoardSettings:
-    companies = []
-    for c in raw["companies"] or []:
+def _load_boards(raw: dict, discovered_path: Path) -> BoardSettings:
+    entries = [(c, False) for c in raw["companies"] or []]
+    if discovered_path.exists():
+        with open(discovered_path, encoding="utf-8") as f:
+            entries += [(c, True) for c in yaml.safe_load(f)["companies"] or []]
+
+    wrong_boards = list(raw.get("wrong_boards") or [])
+    companies = {}
+    for c, discovered in entries:
         if c["ats"] not in ("greenhouse", "lever", "ashby"):
-            raise ValueError(f"config.yaml: board '{c['name']}' has unknown ats '{c['ats']}'")
-        companies.append(BoardCompany(name=c["name"], ats=c["ats"], token=c["token"]))
+            raise ValueError(f"board '{c['name']}' has unknown ats '{c['ats']}'")
+        if discovered and f"{c['ats']}:{c['token']}" in wrong_boards:
+            continue  # works even before boards_discovered.yaml is regenerated
+        # Hand-checked entries come first, so they win if a board is in both files.
+        companies.setdefault((c["ats"], c["token"]), BoardCompany(
+            name=c["name"], ats=c["ats"], token=c["token"], discovered=discovered))
     return BoardSettings(
         entry_level_keywords=_lower_list(raw["entry_level_keywords"]),
-        companies=companies,
+        companies=list(companies.values()),
+        wrong_boards=wrong_boards,
     )
 
 

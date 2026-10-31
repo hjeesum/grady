@@ -77,18 +77,15 @@ def fetch_boards(settings: Settings) -> tuple[list[Job], bool]:
     companies = settings.boards.companies
     print(f"\ncompany boards: {len(companies)} companies")
     jobs, failed = [], 0
-    for company in companies:
-        try:
-            found = boards.fetch_board(company.ats, company.token, company.name,
-                                       settings.boards.entry_level_keywords)
-        except (ApiError, requests.RequestException) as error:
-            # A 404 usually means the company moved to another system: re-run find_boards.
-            print(f"  {company.name}: FAILED ({error}), skipping")
+    for company, result in boards.fetch_boards(companies, settings.boards.entry_level_keywords):
+        if isinstance(result, Exception):
+            # A 404 usually means the company moved to another system or renamed
+            # its board: re-run scripts/discover_boards.py (or find_boards).
+            print(f"  {company.name}: FAILED ({result}), skipping")
             failed += 1
-            continue
-        if found:
-            print(f"  {company.name}: {len(found)} entry-level UK jobs")
-        jobs.extend(found)
+        elif result:
+            print(f"  {company.name}: {len(result)} entry-level UK jobs")
+            jobs.extend(result)
     print(f"  {len(jobs)} jobs in total")
     return jobs, bool(companies) and failed == len(companies)
 
