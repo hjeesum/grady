@@ -4,7 +4,8 @@ from collections import Counter
 
 import pytest
 
-from scripts.discover_boards import board_names, is_same_company, name_variants
+from scripts.discover_boards import board_names, board_text, is_same_company, name_variants
+from tests.test_boards import RECRUITEE, SMARTRECRUITERS, TEAMTAILOR, WORKABLE
 from scripts.find_tech_sponsors import is_tech
 
 
@@ -30,10 +31,15 @@ def test_board_names():
     # Two register companies start with "Quantum", so "quantum" alone isn't guessed.
     assert board_names("Quantum Metric (UK) Limited", first_words) == ["quantummetric", "quantum-metric"]
     assert board_names("Ab Cd Ltd", first_words) == ["abcd", "ab-cd"]  # "ab" is too short alone
+    # A web address part is at most 63 characters; longer guesses crashed the probe.
+    long_name = " ".join(["word"] * 14)  # 14 words: "wordword..." is 56, "word-word-..." is 69
+    assert board_names(long_name, first_words) == ["word" * 14]
 
 
 def test_name_variants_include_trading_names():
     assert name_variants("Roofoods Ltd t/a Deliveroo") == ["roofoods", "deliveroo"]
+    assert name_variants("GCS Compliance Services Europe Unlimited Company Trading As Navex Global")[-1] \
+        == "navex global"
 
 
 @pytest.mark.parametrize(
@@ -48,3 +54,16 @@ def test_name_variants_include_trading_names():
 )
 def test_is_same_company(token, names, text, same):
     assert is_same_company(token, names, text) is same
+
+
+@pytest.mark.parametrize(
+    "ats, data, name",
+    [
+        ("smartrecruiters", SMARTRECRUITERS, "wise"),
+        ("workable", WORKABLE, "hugging face"),
+        ("recruitee", RECRUITEE, "bunq"),
+        ("teamtailor", TEAMTAILOR, "teamtailor"),
+    ],
+)
+def test_board_text_finds_the_company_name(ats, data, name):
+    assert name in board_text(ats, data).lower()

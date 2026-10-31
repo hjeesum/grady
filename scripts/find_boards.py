@@ -4,7 +4,7 @@ Run from the project root:
     python -m scripts.find_boards "Monzo" "Wise" "GoCardless"
 
 For each company it guesses board names ("GoCardless" -> "gocardless"), tries
-Greenhouse, Lever and Ashby, and prints what it finds: how many UK jobs and UK
+every system in grady/boards.py, and prints what it finds: how many UK jobs and UK
 entry-level jobs the board has, and whether the name matches the sponsor
 register. Only add companies that match the register; jobs from the others
 would never reach the email anyway.
@@ -12,6 +12,7 @@ would never reach the email anyway.
 
 import re
 import sys
+from xml.etree import ElementTree
 
 from grady.boards import URLS, fetch_uk_jobs, is_entry_level
 from grady.config import load_settings
@@ -42,11 +43,15 @@ def main() -> None:
             for ats in URLS:
                 try:
                     uk_jobs = fetch_uk_jobs(ats, token, company)
-                except (ApiError, ValueError, KeyError, TypeError):
+                except (ApiError, ValueError, KeyError, TypeError, ElementTree.ParseError):
                     continue  # no board here (usually HTTP 404), or not the expected JSON
+                if ats == "smartrecruiters" and not uk_jobs:
+                    # SmartRecruiters answers "no jobs" even for companies it doesn't
+                    # know, so an empty answer doesn't mean there's a board.
+                    continue
                 entry = [job for job in uk_jobs if is_entry_level(job.title, keywords)]
                 found = True
-                print(f"{company:<25} {ats:<10} token={token:<20} "
+                print(f"{company:<25} {ats:<15} token={token:<20} "
                       f"{len(uk_jobs):>3} UK jobs, {len(entry):>2} entry level   ({sponsor})")
                 for job in entry[:5]:
                     print(f"{'':<27}- {job.title}")

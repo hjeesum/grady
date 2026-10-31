@@ -41,6 +41,8 @@ filters:
 
 # One profile per kind of job. All profiles' search terms are fetched once per
 # run; each profile then picks its own jobs with its own filters.
+# Only tech for now (Oct 2026). Healthcare, engineering, finance, law and
+# graduate-scheme profiles existed before; they're in git history to copy back.
 #   terms:            sent to the job APIs. The APIs match ALL the words, so
 #                     short, broad terms find more.
 #   include_keywords: a title must contain at least one (whole words, any case).
@@ -98,161 +100,8 @@ profiles:
     # and top graduate jobs (quant firms, big tech) pay well above that.
     min_salary: 30000
 
-  healthcare:
-    name: Healthcare
-    # Starting terms, not yet measured. (Foundation doctor posts are recruited
-    # nationally, not through job sites, so "junior doctor" finds few.)
-    terms:
-      - newly qualified nurse
-      - staff nurse
-      - junior doctor
-      - pharmacist
-      - physiotherapist
-      - radiographer
-    sources:
-      - adzuna
-      - reed
-      - nhs_jobs
-    include_keywords:
-      - nurse
-      - nursing
-      - midwife
-      - doctor
-      - physician
-      - pharmacist
-      - physiotherapist
-      - radiographer
-      - paramedic
-      - occupational therapist
-      - dietitian
-      - sonographer
-      - biomedical scientist
-    # Since July 2025, UK rules generally stopped new overseas recruitment into
-    # care-worker roles and raised Skilled Worker jobs to degree level (with some
-    # exceptions). Check gov.uk: these rules change.
-    exclude_keywords:
-      - care worker
-      - carer
-      - support worker
-      - care assistant
-      - healthcare assistant
-      - consultant  # "Consultant" doctors are senior
-      - manager
-      # NHS seniority is shown by pay band, not "senior": Band 5 is entry level
-      # for nurses and allied health roles; Bands 6+ need experience.
-      - band 6
-      - band 7
-      - band 8a
-      - band 8b
-      - band 8c
-      - band 8d
-      - band 9
-      - b6
-      - b7
-      - advanced
-      - specialist
-      - sister
-      - charge nurse
-      - matron
-      - district nurse
-    min_salary: 25000
-
-  engineering:
-    name: Engineering
-    # Starting terms, not yet measured.
-    terms:
-      - graduate engineer
-      - graduate civil engineer
-      - graduate mechanical engineer
-      - graduate electrical engineer
-      - junior engineer
-    include_keywords:
-      - engineer
-      - engineering
-    # Software and data engineers are in the tech profile.
-    exclude_keywords:
-      - software
-      - data
-      - devops
-      - cloud
-      - manager
-    min_salary: 28000
-
-  finance:
-    name: Finance
-    # Starting terms, not yet measured.
-    terms:
-      - graduate accountant
-      - trainee accountant
-      - graduate finance
-      - audit associate
-      - junior accountant
-      - graduate analyst
-    include_keywords:
-      - accountant
-      - accounting
-      - accounts
-      - finance
-      - financial
-      - audit
-      - auditor
-      - tax
-      - actuarial
-      - actuary
-      - investment
-      - banking
-      - treasury
-      - risk
-    exclude_keywords:
-      - controller  # "Financial Controller" is senior
-      - partner
-      - manager
-    min_salary: 28000
-
-  law:
-    name: Law
-    # Starting terms, not yet measured.
-    terms:
-      - trainee solicitor
-      - training contract
-      - paralegal
-      - legal assistant
-      - newly qualified solicitor
-    include_keywords:
-      - solicitor
-      - paralegal
-      - legal
-      - lawyer
-      - barrister
-      - training contract
-      - conveyancer
-      - litigation
-    exclude_keywords:
-      - partner
-      - secretary
-      - manager
-    min_salary: 25000
-
-  graduate_schemes:
-    name: Graduate schemes
-    # Graduate programmes in any field. Starting terms, not yet measured.
-    terms:
-      - graduate scheme
-      - graduate programme
-      - graduate trainee
-      - graduate development programme
-    include_keywords:
-      - graduate scheme
-      - graduate programme
-      - graduate program
-      - graduate development
-      - graduate trainee
-      - graduate training
-      - graduate intake
-    exclude_keywords:
-    min_salary: 25000
-
-# Jobs straight from employers' own job boards (Greenhouse, Lever, Ashby).
+# Jobs straight from employers' own job boards (Greenhouse, Lever, Ashby,
+# SmartRecruiters, Workable, Recruitee, Teamtailor).
 # Every open job is downloaded; only UK jobs with an entry-level word in the
 # title are kept, then each profile's filters apply as usual.
 # Find and check a company with: python -m scripts.find_boards "Company Name"
@@ -322,6 +171,8 @@ boards:
     - {name: Trading 212, ats: ashby, token: trading212}
     - {name: Wayve, ats: ashby, token: wayve}
     - {name: Zilch, ats: ashby, token: zilch}
+    # "wise" on Greenhouse is a US firm; Wise (the UK fintech) is on SmartRecruiters.
+    - {name: Wise Payments, ats: smartrecruiters, token: wise}
 
 email:
   # The most jobs to list in each section; the email says how many more there are.

@@ -43,6 +43,8 @@ def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
     terms_per_source = {name: settings.terms_for(name) for name in SOURCES}
     for source_name, fetch_all in SOURCES.items():
         terms = terms_per_source[source_name]
+        if not terms:
+            continue  # no profile uses this source (e.g. nhs_jobs without healthcare)
         print(f"\n{source_name}: {len(terms)} search terms")
         for term in terms:
             try:

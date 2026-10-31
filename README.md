@@ -14,7 +14,7 @@ The UK government publishes the [Register of Licensed Sponsors](https://www.gov.
 
 Every morning, a GitHub Actions workflow:
 
-1. **Searches** the Adzuna and Reed job APIs across the whole UK, NHS Jobs for healthcare, and the job boards of 325 tech companies on the sponsor register.
+1. **Searches** the Adzuna and Reed job APIs across the whole UK, and the job boards of 404 tech companies on the sponsor register.
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
@@ -32,8 +32,7 @@ Recruitment agencies get their own section. Their adverts hide the real employer
 flowchart LR
     A[Adzuna API] --> F[Fetch<br/>pagination, rate limits, retries]
     R[Reed API] --> F
-    N[NHS Jobs feed] --> F
-    B[Company boards<br/>Greenhouse, Lever, Ashby] --> F
+    B[Company boards<br/>Greenhouse, Lever, Ashby,<br/>SmartRecruiters, Workable,<br/>Recruitee, Teamtailor] --> F
     F --> D[De-duplicate<br/>company + title + location]
     D --> S[(SQLite)]
     G[gov.uk sponsor register<br/>CSV, 143k rows] --> M[Match company names<br/>exact → unique prefix → fuzzy]
@@ -44,7 +43,7 @@ flowchart LR
 
 | Part | File | Notes |
 |---|---|---|
-| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py), [`nhs_jobs.py`](grady/nhs_jobs.py), [`boards.py`](grady/boards.py) | Official APIs and feeds only, no scraping. Each converts results into one `Job` type, so adding a source is one new file. NHS Jobs is searched for Band 5 (entry-level) roles only. |
+| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py), [`nhs_jobs.py`](grady/nhs_jobs.py), [`boards.py`](grady/boards.py) | Official APIs and feeds only, no scraping. Each converts results into one `Job` type, so adding a source is one new file. NHS Jobs (Band 5, entry-level roles only) is kept for a healthcare profile but currently unused. |
 | HTTP | [`http_utils.py`](grady/http_utils.py), [`ratelimit.py`](grady/ratelimit.py) | Requests spaced 2.5 s apart; 429 and 5xx retried with exponential backoff. API keys never appear in error messages. |
 | Storage | [`storage.py`](grady/storage.py) | SQLite with a `UNIQUE(source, source_id)` constraint and versioned schema migrations. |
 | Sponsor register | [`sponsors.py`](grady/sponsors.py) | Finds today's CSV through the GOV.UK Content API, since the file name changes with every update. |
@@ -79,22 +78,29 @@ Reed gives about 60% of locations as postcodes (`LS13AD`), while Adzuna gives pl
 
 ### 4. Healthcare: going to the source
 
+*(Grady now focuses on tech only; the healthcare profile was removed, but the NHS Jobs code is kept.)*
+
 Adzuna and Reed found only about 6 entry-level healthcare jobs a week at sponsors, because most NHS vacancies are posted on NHS Jobs. Its public search feed (documented for developers to "make use of the data") can filter by **NHS pay band**. That matters because NHS seniority is set by band, not by words like "senior" in the title: Band 5 is entry level for nurses and allied health professionals. Searching Band 5 only raised the count to about 250 a week.
 
 The register and NHS Jobs also name trusts differently ("Barts Health National Health Service Trust" vs "Barts Health NHS Trust", "NHS FT" vs "NHS Foundation Trust"). Treating these NHS organisation types as legal suffixes, like "Ltd", raised matched NHS employers from 81% to 89%, with no change to the labelled-set results.
 
 ### 5. Tech: going straight to the employer
 
-Many tech companies publish jobs only on their own careers page, which is often hosted by Greenhouse, Lever or Ashby. All three have public, key-free APIs meant for building job boards. Instead of searching, Grady downloads every open job from a list of companies and keeps the UK ones whose title says "Graduate", "Junior", "New Grad" and similar. Boards list every level, and most experienced roles never say "senior".
+Many tech companies publish jobs only on their own careers page, which is often hosted by a job board system: Grady reads seven (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee and Teamtailor). Each has a public, key-free way to list a company's jobs, made for showing them on the company's own website (Teamtailor as an RSS feed). Instead of searching, Grady downloads every open job from a list of companies and keeps the UK ones whose title says "Graduate", "Junior", "New Grad" and similar. Boards list every level, and most experienced roles never say "senior".
 
-The company list starts from the sponsor register, not from the boards. [`scripts/find_boards.py`](scripts/find_boards.py) guesses each company's board name, tries all three systems, and reports UK jobs and the register match. Two traps it exposed:
+The company list starts from the sponsor register, not from the boards. [`scripts/find_boards.py`](scripts/find_boards.py) guesses each company's board name, tries every system, and reports UK jobs and the register match. Two traps it exposed:
 
 - **The same board name can be a different company.** The `wise` and `cleo` Greenhouse boards only had US jobs; they belong to other firms.
 - **Short brand names can match the wrong sponsor.** `Elastic` matched `Elastic Path Software`, so the config uses the legal name, `Elasticsearch`.
 
 On the first day, 39 checked companies gave 18 graduate tech jobs at sponsors (Palantir, Stripe, Deliveroo, Graphcore and others), more than Adzuna and Reed found in a week.
 
-**Finding companies automatically.** Picking companies by hand doesn't scale, and the register has no industry column. But Companies House publishes a free monthly file of every UK company with its industry (SIC) codes and accounts category. [`scripts/find_tech_sponsors.py`](scripts/find_tech_sponsors.py) joins it with the register: 81% of register names are found, and 3,240 are tech companies (SIC 62, 63, 58290) big enough to file more than micro-entity accounts. [`scripts/discover_boards.py`](scripts/discover_boards.py) then probed all of them, about 20,000 requests, with one thread per system and resumable progress, and found 286 more boards.
+**Finding companies automatically.** Picking companies by hand doesn't scale, and the register has no industry column. But Companies House publishes a free monthly file of every UK company with its industry (SIC) codes and accounts category. [`scripts/find_tech_sponsors.py`](scripts/find_tech_sponsors.py) joins it with the register: 81% of register names are found, and 3,240 are tech companies (SIC 62, 63, 58290) big enough to file more than micro-entity accounts. [`scripts/discover_boards.py`](scripts/discover_boards.py) then probed all of them, about 40,000 requests, with one thread per system and resumable progress, and found 364 more boards.
+
+Adding systems brought new traps:
+- **Abandoned boards.** Many SmartRecruiters boards belong to companies that moved to another system years ago but never closed their old jobs: Lyst's newest "open" job was from 2016, and Beamery's was a 2021 "Test Job". Jobs posted more than a year ago are now ignored, so these boards find nothing and aren't added.
+- **Systems that answer differently.** SmartRecruiters answers "no jobs" instead of "not found" for companies it doesn't know. Workable allows only about one request every 10 seconds, measured by sending requests at different speeds, so it's probed in a separate overnight run and fetched slowly every day.
+- **Names that can't be web addresses.** Recruitee and Teamtailor put the board name in the address (`name.recruitee.com`), and one register name made a 72-character guess, over the 63-character limit. The error wasn't a network error, so it silently stopped two of the probing threads until I found it.
 
 Guessing a board from a company's first word was the weak point: `Quantum Metric` found the board of a price-comparison company called Quantum, and `Cursor Controls` (UK hardware) found Cursor (AI). The fix is the sponsor matcher's rule again: guess the first word only if **exactly one** register company starts with it. That removed every false match I found, at the cost of some real ones (Stripe, Snowflake). Four remaining one-word clashes, such as `Prophet plc` vs Prophet the consultancy, are listed in `wrong_boards` in the config after checking by hand.
 
@@ -106,7 +112,7 @@ Guessing a board from a company's first word was the weak point: `Quantum Metric
 
 ## Testing
 
-158 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+153 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 
@@ -126,7 +132,7 @@ copy .env.example .env             # then fill in your keys (macOS/Linux: cp)
 python -m grady --dry-run          # fetch, and build a preview per profile in data/previews/, without sending
 ```
 
-Search terms, preferred cities, salary and keyword filters live in [`config.yaml`](config.yaml), as **profiles**: tech, healthcare, engineering, finance, law and graduate schemes. Every profile's search terms are fetched once per run, and each profile then picks its own jobs with its own filters, so API usage grows with the number of search terms, not the number of profiles. `my_profile` chooses which digest is emailed.
+Search terms, preferred cities, salary and keyword filters live in [`config.yaml`](config.yaml), as **profiles**. There is one for now, tech; healthcare, engineering, finance, law and graduate-scheme profiles were tried and removed to focus on tech. Every profile's search terms are fetched once per run, and each profile then picks its own jobs with its own filters, so API usage grows with the number of search terms, not the number of profiles. `my_profile` chooses which digest is emailed.
 
 To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`, `SMTP_USER`, `SMTP_PASSWORD` (a Gmail App Password) and `EMAIL_TO` as repository secrets.
 

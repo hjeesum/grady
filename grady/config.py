@@ -15,6 +15,9 @@ DISCOVERED_BOARDS_FILE = "boards_discovered.yaml"
 # Sources a profile searches when config.yaml doesn't list any.
 DEFAULT_SOURCES = ["adzuna", "reed"]
 
+# Job board systems grady/boards.py can read (a test checks the two lists agree).
+BOARD_SYSTEMS = ["greenhouse", "lever", "ashby", "smartrecruiters", "workable", "recruitee", "teamtailor"]
+
 
 @dataclass(frozen=True)
 class SearchSettings:
@@ -51,7 +54,7 @@ class EmailSettings:
 @dataclass(frozen=True)
 class BoardCompany:
     name: str  # used for sponsor matching, so ideally the name on the register
-    ats: str  # "greenhouse", "lever" or "ashby"
+    ats: str  # one of BOARD_SYSTEMS, e.g. "greenhouse"
     token: str  # the company's board name in that system, e.g. "monzo"
     discovered: bool = False  # True: from boards_discovered.yaml, not checked by hand
 
@@ -150,7 +153,7 @@ def _load_boards(raw: dict, discovered_path: Path) -> BoardSettings:
     wrong_boards = list(raw.get("wrong_boards") or [])
     companies = {}
     for c, discovered in entries:
-        if c["ats"] not in ("greenhouse", "lever", "ashby"):
+        if c["ats"] not in BOARD_SYSTEMS:
             raise ValueError(f"board '{c['name']}' has unknown ats '{c['ats']}'")
         if discovered and f"{c['ats']}:{c['token']}" in wrong_boards:
             continue  # works even before boards_discovered.yaml is regenerated

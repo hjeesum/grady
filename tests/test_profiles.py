@@ -20,9 +20,9 @@ def test_each_source_gets_its_profiles_terms_once(settings):
                 assert set(profile.terms) <= set(terms)
 
 
-def test_nhs_jobs_only_searches_healthcare_terms(settings):
+def test_nhs_jobs_is_not_searched_with_tech_terms(settings):
     # NHS Jobs keyword search is loose; tech terms would flood the database.
-    assert set(settings.terms_for("nhs_jobs")) == set(settings.profiles["healthcare"].terms)
+    assert "nhs_jobs" not in settings.profiles["tech"].sources
 
 
 def test_my_profile_exists(settings):
@@ -45,23 +45,8 @@ def test_shared_filters_apply_to_every_profile(settings):
         ("tech", "Interim Financial Controller | Hardware Deep Tech", False),
         ("tech", "Junior Data Quality Analyst", True),
         ("tech", "Graduate Firmware Engineer 2027", True),
-        ("healthcare", "Staff Nurse", True),  # entry level in nursing
-        ("healthcare", "Newly Qualified Nurse - Band 5", True),
-        ("healthcare", "Healthcare Assistant", False),
-        ("healthcare", "Consultant Physician", False),
-        ("healthcare", "Band 8A - Highly Specialist (Advanced) Pharmacist", False),
-        ("healthcare", "Community B6 Physiotherapist", False),
-        ("healthcare", "Sister/Charge Nurse", False),
-        ("healthcare", "Physiotherapist - Acute Stroke", True),
-        ("healthcare", "Special Care Baby Unit Nurse *Internal applications only*", False),
-        ("engineering", "Graduate Civil Engineer", True),
-        ("engineering", "Graduate Software Engineer", False),  # belongs to tech
-        ("finance", "Graduate Accountant", True),
-        ("finance", "Financial Controller", False),
-        ("law", "Trainee Solicitor", True),
-        ("law", "Legal Secretary", False),
-        ("graduate_schemes", "Graduate Programme 2027 - Supply Chain", True),
-        ("graduate_schemes", "Delivery Driver", False),
+        ("tech", "Graduate Accountant", False),
+        ("tech", "Junior Developer - Internal applications only", False),
     ],
 )
 def test_profile_filters(settings, make_job, profile_id, title, included):

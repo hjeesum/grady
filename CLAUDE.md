@@ -48,7 +48,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (145 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (153 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
@@ -56,20 +56,31 @@ Roadmap: (1) profiles [done] -> measure each profile's search terms (needs a fre
 Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pages
 -> (3) friends' emails via Google Form + private Sheet, per-recipient sent tracking
 -> (4) self-hosting guide in README. Check Adzuna/Reed terms before publishing jobs publicly.
-- config.yaml `profiles:` tech, healthcare, engineering, finance, law, graduate_schemes,
-  all entry level. Shared filters + per-profile include/exclude/min_salary.
-  `my_profile` = whose digest goes to EMAIL_TO. Previews: data/previews/<profile>.html.
-- Only tech terms are measured; the other profiles' terms are unmeasured starting points.
+- config.yaml `profiles:` ONLY tech now. User chose (31 Oct 2026) to focus on tech and
+  removed healthcare, engineering, finance, law, graduate_schemes (in git history before
+  that date; their terms were unmeasured). Profile machinery kept: shared filters +
+  per-profile include/exclude/min_salary. `my_profile` = whose digest goes to EMAIL_TO.
+  Previews: data/previews/<profile>.html.
 - Sources: adzuna, reed (default per profile) + nhs_jobs (public XML feed, Band 5 only,
-  healthcare profile only because its keyword search is loose). Profiles choose via `sources:`.
+  healthcare only because its keyword search is loose; code kept, unused now; sources with
+  no terms are skipped). Profiles choose via `sources:`.
   NHS org types ("NHS Foundation Trust", "NHS FT", "National Health Service") are
   stripped as legal suffixes in normalise_company. ~250 useful healthcare jobs/week.
-- Company boards (grady/boards.py): Greenhouse, Lever, Ashby public APIs. config.yaml
+- Company boards (grady/boards.py): Greenhouse, Lever, Ashby, SmartRecruiters (asks
+  country=gb, pages of 100; unknown company = 200 + empty, not 404), Workable (widget API),
+  Recruitee, Teamtailor (RSS). Personio skipped: no country field, mostly German firms.
+  New system = URLS/PARAMS/parser in boards.py + config.BOARD_SYSTEMS + discover_boards
+  board_text/THREADS_PER_SYSTEM. config.yaml
   `boards.companies` (name = register name, ats, token); not term-based, every open job
   fetched each run, kept if UK + entry-level word in title. source_id = "<token>:<id>".
   Add companies with `python -m scripts.find_boards "Name"`: only add if register match
   AND the board has UK jobs (same token can be another company, e.g. wise/cleo = US firms).
-  Use legal names when brands are ambiguous (Elastic -> Elasticsearch). 39 companies, Oct 2026.
+  Use legal names when brands are ambiguous (Elastic -> Elasticsearch). 40 hand-picked
+  companies (Wise Payments is on SmartRecruiters; Greenhouse "wise" is a US firm).
+  Board jobs posted > 365 days ago are dropped (boards.recent_only): many SmartRecruiters
+  boards are abandoned with years-old jobs still "open" (Lyst 2016, Beamery test jobs).
+  Workable: ~1 request per 10 s (measured), so daily fetch waits 10 s between its boards
+  and discovery probes it separately (`discover_boards workable`, ~10 h, overnight).
 - Auto-discovery (user chose; open to scraping, but plan = official data first):
   (a) [done] scripts/find_tech_sponsors.py: register x Companies House free monthly bulk
       file (no API key; ~470 MB in data/companies_house/) -> SIC 62/63/58290 + accounts
@@ -77,13 +88,16 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
       Finds 27 of the 39 hand-picked; misses fintech (SIC 64/66), R&D labs (72), retail.
   (b) [done] scripts/discover_boards.py probes all of them (threads per system, Lever x4
       because it's slow; cache data/discovery/probe_cache.json) -> boards_discovered.yaml
-      (GENERATED, committed, 286 boards; config.py loads it after config.yaml's hand list,
+      (GENERATED, committed, 364 boards on 6 systems; Workable not probed yet, user to run
+      it overnight; config.py loads it after config.yaml's hand list,
       hand list wins). Accept = UK jobs + company name in board text + first-word guesses
       only when the word is unique on the register. config `boards.wrong_boards` = hand-found
       false matches. Daily fetch: boards.fetch_boards, one thread per system (~5 min).
-  Later options discussed: more ATS (SmartRecruiters, Workable, Recruitee, Personio,
-  Teamtailor), job-alert emails via Gmail API (LinkedIn etc. without scraping),
-  Workday JSON (light scraping of employers' own sites). Never scrape LinkedIn/Indeed.
+  Later options discussed: job-alert emails (LinkedIn etc. without scraping; plan = IMAP
+  with the existing Gmail app password + a Gmail label, not the Gmail API, whose personal
+  OAuth tokens can expire weekly), Workday JSON (light scraping of employers' own sites).
+  Never scrape LinkedIn/Indeed: no official LinkedIn search API exists, paid "LinkedIn
+  APIs" are scrapers, and the user's own account could be banned.
 - emailed_at still tracks only my_profile's email; friends need a per-recipient table.
 
 ## Layout
