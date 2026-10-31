@@ -14,7 +14,7 @@ The UK government publishes the [Register of Licensed Sponsors](https://www.gov.
 
 Every morning, a GitHub Actions workflow:
 
-1. **Searches** the Adzuna and Reed job APIs across the whole UK, plus NHS Jobs for healthcare.
+1. **Searches** the Adzuna and Reed job APIs across the whole UK, NHS Jobs for healthcare, and the job boards of 39 sponsor companies.
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
@@ -32,6 +32,8 @@ Recruitment agencies get their own section. Their adverts hide the real employer
 flowchart LR
     A[Adzuna API] --> F[Fetch<br/>pagination, rate limits, retries]
     R[Reed API] --> F
+    N[NHS Jobs feed] --> F
+    B[Company boards<br/>Greenhouse, Lever, Ashby] --> F
     F --> D[De-duplicate<br/>company + title + location]
     D --> S[(SQLite)]
     G[gov.uk sponsor register<br/>CSV, 143k rows] --> M[Match company names<br/>exact → unique prefix → fuzzy]
@@ -42,7 +44,7 @@ flowchart LR
 
 | Part | File | Notes |
 |---|---|---|
-| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py), [`nhs_jobs.py`](grady/nhs_jobs.py) | Official APIs and feeds only, no scraping. Each converts results into one `Job` type, so adding a source is one new file. NHS Jobs is searched for Band 5 (entry-level) roles only. |
+| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py), [`nhs_jobs.py`](grady/nhs_jobs.py), [`boards.py`](grady/boards.py) | Official APIs and feeds only, no scraping. Each converts results into one `Job` type, so adding a source is one new file. NHS Jobs is searched for Band 5 (entry-level) roles only. |
 | HTTP | [`http_utils.py`](grady/http_utils.py), [`ratelimit.py`](grady/ratelimit.py) | Requests spaced 2.5 s apart; 429 and 5xx retried with exponential backoff. API keys never appear in error messages. |
 | Storage | [`storage.py`](grady/storage.py) | SQLite with a `UNIQUE(source, source_id)` constraint and versioned schema migrations. |
 | Sponsor register | [`sponsors.py`](grady/sponsors.py) | Finds today's CSV through the GOV.UK Content API, since the file name changes with every update. |
@@ -81,7 +83,18 @@ Adzuna and Reed found only about 6 entry-level healthcare jobs a week at sponsor
 
 The register and NHS Jobs also name trusts differently ("Barts Health National Health Service Trust" vs "Barts Health NHS Trust", "NHS FT" vs "NHS Foundation Trust"). Treating these NHS organisation types as legal suffixes, like "Ltd", raised matched NHS employers from 81% to 89%, with no change to the labelled-set results.
 
-### 5. Running unattended
+### 5. Tech: going straight to the employer
+
+Many tech companies publish jobs only on their own careers page, which is often hosted by Greenhouse, Lever or Ashby. All three have public, key-free APIs meant for building job boards. Instead of searching, Grady downloads every open job from a list of companies and keeps the UK ones whose title says "Graduate", "Junior", "New Grad" and similar. Boards list every level, and most experienced roles never say "senior".
+
+The company list starts from the sponsor register, not from the boards. [`scripts/find_boards.py`](scripts/find_boards.py) guesses each company's board name, tries all three systems, and reports UK jobs and the register match. Two traps it exposed:
+
+- **The same board name can be a different company.** The `wise` and `cleo` Greenhouse boards only had US jobs; they belong to other firms.
+- **Short brand names can match the wrong sponsor.** `Elastic` matched `Elastic Path Software`, so the config uses the legal name, `Elasticsearch`.
+
+On the first day, 39 checked companies gave 18 graduate tech jobs at sponsors (Palantir, Stripe, Deliveroo, Graphcore and others), more than Adzuna and Reed found in a week.
+
+### 6. Running unattended
 
 - **No server, and no database between runs.** Each GitHub Actions run starts on a fresh machine, so the SQLite file lives on a separate one-commit `data` branch: restored at the start of a run, saved at the end.
 - **Failures are expected.** Adzuna returned HTTP 503 during development and crashed the whole run, so one failing source is now skipped. A source that fails for *every* search term (like a wrong API key) still finishes the run but marks it failed, so GitHub alerts me.
@@ -89,7 +102,7 @@ The register and NHS Jobs also name trusts differently ("Barts Health National H
 
 ## Testing
 
-88 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+145 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 
@@ -123,7 +136,7 @@ To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`
 
 - Re-check previously rejected companies when the sponsor register updates.
 - Match the remaining NHS naming variants (e.g. "… Hospital NHS Foundation Trust", Welsh health boards), adding them to the labelled set first.
-- Add company job boards (Greenhouse, Lever, Ashby) as a source: jobs straight from employers on the sponsor register.
+- Grow the company board list automatically from the sponsor register, and read board salaries where given.
 - Use full advert text to spot "no sponsorship available" phrases.
 - Check roles against Skilled Worker salary thresholds and occupation codes.
 - Tune search terms and use each API's IT category, to bring in more tech roles.

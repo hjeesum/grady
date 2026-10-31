@@ -12,7 +12,7 @@ from datetime import date
 
 import requests
 
-from grady import adzuna, nhs_jobs, reed
+from grady import adzuna, boards, nhs_jobs, reed
 from grady.agencies import AgencyDetector
 from grady.classify import classify_company
 from grady.config import PROJECT_ROOT, Settings, load_settings
@@ -20,6 +20,7 @@ from grady.digest import build_digest, render_html, render_text, subject
 from grady.emailer import send_email
 from grady.http_utils import ApiError
 from grady.matching import SponsorMatcher
+from grady.models import Job
 from grady.sponsors import download_register, load_sponsor_names
 from grady.storage import JobStore
 
@@ -35,7 +36,7 @@ PREVIEWS_DIR = PROJECT_ROOT / "data" / "previews"
 
 
 def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
-    """Fetch from every source and store new jobs. Returns sources that failed for every term."""
+    """Fetch from every source and store new jobs. Returns sources that failed every time."""
     search = settings.search
     all_jobs = []
     failures = Counter()
@@ -55,6 +56,9 @@ def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
             print(f"  '{term}': {len(jobs)} jobs")
             all_jobs.extend(jobs)
 
+    board_jobs, boards_failed = fetch_boards(settings)
+    all_jobs.extend(board_jobs)
+
     result = store.save_new(all_jobs)
     print(f"\nFetched {len(all_jobs)} jobs:")
     print(f"  {len(result.new_jobs)} new")
@@ -64,7 +68,29 @@ def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
 
     # Failing for one term is usually a temporary hiccup. Failing for EVERY term
     # usually means a setup problem, like a wrong API key.
-    return [name for name, count in failures.items() if count == len(terms_per_source[name])]
+    failed = [name for name, count in failures.items() if count == len(terms_per_source[name])]
+    return failed + (["company boards"] if boards_failed else [])
+
+
+def fetch_boards(settings: Settings) -> tuple[list[Job], bool]:
+    """Fetch every company board in config.yaml. Returns (jobs, did every board fail?)."""
+    companies = settings.boards.companies
+    print(f"\ncompany boards: {len(companies)} companies")
+    jobs, failed = [], 0
+    for company in companies:
+        try:
+            found = boards.fetch_board(company.ats, company.token, company.name,
+                                       settings.boards.entry_level_keywords)
+        except (ApiError, requests.RequestException) as error:
+            # A 404 usually means the company moved to another system: re-run find_boards.
+            print(f"  {company.name}: FAILED ({error}), skipping")
+            failed += 1
+            continue
+        if found:
+            print(f"  {company.name}: {len(found)} entry-level UK jobs")
+        jobs.extend(found)
+    print(f"  {len(jobs)} jobs in total")
+    return jobs, bool(companies) and failed == len(companies)
 
 
 def classify_unchecked(store: JobStore, settings: Settings) -> None:
@@ -140,8 +166,8 @@ def main() -> None:
     # Finish the run first (email sent, database saved), THEN report the problem.
     # A non-zero exit code makes GitHub Actions mark the run as failed and email you.
     if failed_sources:
-        sys.exit(f"\nERROR: {', '.join(failed_sources)} failed for every search term. "
-                 "Check the API key.")
+        sys.exit(f"\nERROR: {', '.join(failed_sources)} failed every time. "
+                 "Check the API key (or, for company boards, the network).")
 
 
 if __name__ == "__main__":

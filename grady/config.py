@@ -47,12 +47,26 @@ class EmailSettings:
 
 
 @dataclass(frozen=True)
+class BoardCompany:
+    name: str  # used for sponsor matching, so ideally the name on the register
+    ats: str  # "greenhouse", "lever" or "ashby"
+    token: str  # the company's board name in that system, e.g. "monzo"
+
+
+@dataclass(frozen=True)
+class BoardSettings:
+    entry_level_keywords: list[str]  # a board job's title must contain one
+    companies: list[BoardCompany]
+
+
+@dataclass(frozen=True)
 class Settings:
     search: SearchSettings
     profiles: dict[str, Profile]
     my_profile: str  # which profile's digest is emailed to EMAIL_TO
     email: EmailSettings
     known_agencies: list[str]
+    boards: BoardSettings
 
     def terms_for(self, source: str) -> list[str]:
         """The search terms to send to one source: every profile that uses it, each term once.
@@ -119,6 +133,19 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
             max_agency_jobs=int(raw["email"]["max_agency_jobs"]),
         ),
         known_agencies=list(raw["agencies"]["known_names"]),
+        boards=_load_boards(raw["boards"]),
+    )
+
+
+def _load_boards(raw: dict) -> BoardSettings:
+    companies = []
+    for c in raw["companies"] or []:
+        if c["ats"] not in ("greenhouse", "lever", "ashby"):
+            raise ValueError(f"config.yaml: board '{c['name']}' has unknown ats '{c['ats']}'")
+        companies.append(BoardCompany(name=c["name"], ats=c["ats"], token=c["token"]))
+    return BoardSettings(
+        entry_level_keywords=_lower_list(raw["entry_level_keywords"]),
+        companies=companies,
     )
 
 

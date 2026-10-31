@@ -48,7 +48,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (88 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (145 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
@@ -64,9 +64,12 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
   healthcare profile only because its keyword search is loose). Profiles choose via `sources:`.
   NHS org types ("NHS Foundation Trust", "NHS FT", "National Health Service") are
   stripped as legal suffixes in normalise_company. ~250 useful healthcare jobs/week.
-- Next source: company boards. Verified live: Greenhouse boards-api.greenhouse.io/v1/boards/
-  <token>/jobs?content=true, Lever api.lever.co/v0/postings/<co>?mode=json, Ashby
-  api.ashbyhq.com/posting-api/job-board/<org>. Need a company list + probe script.
+- Company boards (grady/boards.py): Greenhouse, Lever, Ashby public APIs. config.yaml
+  `boards.companies` (name = register name, ats, token); not term-based, every open job
+  fetched each run, kept if UK + entry-level word in title. source_id = "<token>:<id>".
+  Add companies with `python -m scripts.find_boards "Name"`: only add if register match
+  AND the board has UK jobs (same token can be another company, e.g. wise/cleo = US firms).
+  Use legal names when brands are ambiguous (Elastic -> Elasticsearch). 39 companies, Oct 2026.
 - emailed_at still tracks only my_profile's email; friends need a per-recipient table.
 
 ## Layout

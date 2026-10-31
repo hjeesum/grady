@@ -7,7 +7,7 @@ from datetime import datetime
 
 @dataclass(frozen=True)
 class Job:
-    source: str  # "adzuna" or "reed"
+    source: str  # "adzuna", "reed", "nhs_jobs", "greenhouse", "lever" or "ashby"
     source_id: str  # the job's ID inside that source
     title: str
     company: str

@@ -84,6 +84,9 @@ profiles:
       - python
       - java
       - .net
+      - firmware
+      - embedded
+      # Not "infrastructure": "Graduate Infrastructure Engineer" is often civil engineering.
     exclude_keywords:
       - staff  # "Staff Engineer" is a senior tech role
       - manager
@@ -248,6 +251,69 @@ profiles:
       - graduate intake
     exclude_keywords:
     min_salary: 25000
+
+# Jobs straight from employers' own job boards (Greenhouse, Lever, Ashby).
+# Every open job is downloaded; only UK jobs with an entry-level word in the
+# title are kept, then each profile's filters apply as usual.
+# Find and check a company with: python -m scripts.find_boards "Company Name"
+boards:
+  entry_level_keywords:
+    - graduate
+    - grad
+    - junior
+    - entry level
+    - entry-level
+    - early career
+    - early careers
+    - new grad
+    - trainee
+    - apprentice
+    - apprenticeship
+  # Checked with find_boards (Oct 2026): each has a board with UK jobs, and the
+  # name matches the sponsor register. Use the legal name when the brand is
+  # ambiguous ("Elastic" matched a different company, Elastic Path Software).
+  # Most have no entry-level jobs open right now; they're listed so new
+  # graduate roles are caught when they appear. One request per company per run.
+  companies:
+    - {name: Canonical, ats: greenhouse, token: canonical}
+    - {name: Cognism, ats: greenhouse, token: cognism}
+    - {name: Databricks, ats: greenhouse, token: databricks}
+    - {name: Deliveroo, ats: greenhouse, token: deliveroo}
+    - {name: Elasticsearch, ats: greenhouse, token: elastic}
+    - {name: Form3, ats: greenhouse, token: form3}
+    - {name: GoCardless, ats: greenhouse, token: gocardless}
+    - {name: Graphcore, ats: greenhouse, token: graphcore}
+    - {name: Isomorphic Labs, ats: greenhouse, token: isomorphiclabs}
+    - {name: Jane Street, ats: greenhouse, token: janestreet}
+    - {name: Monzo, ats: greenhouse, token: monzo}
+    - {name: MongoDB, ats: greenhouse, token: mongodb}
+    - {name: PhysicsX, ats: greenhouse, token: physicsx}
+    - {name: PolyAI, ats: greenhouse, token: polyai}
+    - {name: Stripe Payments UK, ats: greenhouse, token: stripe}
+    - {name: Tide Platform, ats: greenhouse, token: tide}
+    - {name: Farfetch, ats: lever, token: farfetch}
+    - {name: Palantir, ats: lever, token: palantir}
+    - {name: Spotify, ats: lever, token: spotify}
+    - {name: Zopa, ats: lever, token: zopa}
+    - {name: Beamery, ats: ashby, token: beamery}
+    - {name: Duffel, ats: ashby, token: duffel}
+    - {name: ElevenLabs, ats: ashby, token: elevenlabs}
+    - {name: Faculty Science, ats: ashby, token: faculty}
+    - {name: Improbable, ats: ashby, token: improbable}
+    - {name: Lendable, ats: ashby, token: lendable}
+    - {name: Marshmallow, ats: ashby, token: marshmallow}
+    - {name: Motorway, ats: ashby, token: motorway}
+    - {name: Multiverse, ats: ashby, token: multiverse}
+    - {name: Paddle, ats: ashby, token: paddle}
+    - {name: Pleo, ats: ashby, token: pleo}
+    - {name: Primer, ats: ashby, token: primer}
+    - {name: Quantexa, ats: ashby, token: quantexa}
+    - {name: Snyk, ats: ashby, token: snyk}
+    - {name: Synthesia, ats: ashby, token: synthesia}
+    - {name: Thought Machine, ats: ashby, token: thought-machine}
+    - {name: Trading 212, ats: ashby, token: trading212}
+    - {name: Wayve, ats: ashby, token: wayve}
+    - {name: Zilch, ats: ashby, token: zilch}
 
 email:
   # The most jobs to list in each section; the email says how many more there are.

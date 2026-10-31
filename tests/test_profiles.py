@@ -44,6 +44,7 @@ def test_shared_filters_apply_to_every_profile(settings):
         ("tech", "Technical Product Owner - Fixed Income Data", False),
         ("tech", "Interim Financial Controller | Hardware Deep Tech", False),
         ("tech", "Junior Data Quality Analyst", True),
+        ("tech", "Graduate Firmware Engineer 2027", True),
         ("healthcare", "Staff Nurse", True),  # entry level in nursing
         ("healthcare", "Newly Qualified Nurse - Band 5", True),
         ("healthcare", "Healthcare Assistant", False),
@@ -67,3 +68,9 @@ def test_profile_filters(settings, make_job, profile_id, title, included):
     filters = settings.profiles[profile_id].filters
     job = make_job(title=title, salary_min=None, salary_max=None)
     assert (rejection_reason(job, filters) is None) is included
+
+
+def test_board_companies_are_listed_once(settings):
+    boards = [(c.ats, c.token) for c in settings.boards.companies]
+    assert len(boards) == len(set(boards))
+    assert "graduate" in settings.boards.entry_level_keywords
