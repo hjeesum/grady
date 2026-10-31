@@ -3,9 +3,11 @@ name: Daily digest
 
 on:
   schedule:
-    # Cron times are in UTC: 07:00 UTC is 7am in UK winter and 8am in summer.
-    # GitHub may start scheduled runs a few minutes late when it's busy.
-    - cron: "0 7 * * *"
+    # Cron times are in UTC: 06:37 UTC is 6:37am in UK winter, 7:37am in summer.
+    # Not on the hour: GitHub's docs say the start of every hour is its busiest
+    # time and scheduled runs may be delayed or even dropped then. (The 07:00
+    # run on 31 Oct 2026 never started.) Runs can still start late.
+    - cron: "37 6 * * *"
   workflow_dispatch:  # adds a "Run workflow" button on GitHub, for running it by hand
 
 # Never run two digests at once: they'd both read the same database and

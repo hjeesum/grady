@@ -42,7 +42,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        Tech excludes "product owner", "interim" (false positives seen in real data). A max
        salary cap (60k) was tested and rejected: it dropped real junior jobs / top grad pay.
    Original plan: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
-8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (07:00 UTC +
+8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (06:37 UTC, off the hour +
        manual "Run workflow" button). jobs.db persists on a one-commit "data" branch
        (restored at start, force-pushed at end). Repo hjeesum/grady is private.
        Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.

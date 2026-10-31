@@ -48,7 +48,7 @@ flowchart LR
 | Sponsor register | [`sponsors.py`](grady/sponsors.py) | Finds today's CSV through the GOV.UK Content API, since the file name changes with every update. |
 | Matching | [`normalise.py`](grady/normalise.py), [`matching.py`](grady/matching.py), [`agencies.py`](grady/agencies.py) | See "Challenges" below. |
 | Email | [`digest.py`](grady/digest.py), [`emailer.py`](grady/emailer.py) | Jinja2 template with autoescaping, HTML + plain text, sent over SMTP with STARTTLS. |
-| Automation | [`.github/workflows/`](.github/workflows) | Tests on every push; the digest runs daily at 07:00 UTC. |
+| Automation | [`.github/workflows/`](.github/workflows) | Tests on every push; the digest runs daily at 06:37 UTC (off the hour, when GitHub is less busy). |
 
 ## Challenges
 
