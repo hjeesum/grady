@@ -14,7 +14,7 @@ The UK government publishes the [Register of Licensed Sponsors](https://www.gov.
 
 Every morning, a GitHub Actions workflow:
 
-1. **Searches** the Adzuna and Reed job APIs across the whole UK.
+1. **Searches** the Adzuna and Reed job APIs across the whole UK, plus NHS Jobs for healthcare.
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
@@ -42,7 +42,7 @@ flowchart LR
 
 | Part | File | Notes |
 |---|---|---|
-| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py) | Official APIs only, no scraping. Both convert results into one `Job` type, so adding a source is one new file. |
+| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py), [`nhs_jobs.py`](grady/nhs_jobs.py) | Official APIs and feeds only, no scraping. Each converts results into one `Job` type, so adding a source is one new file. NHS Jobs is searched for Band 5 (entry-level) roles only. |
 | HTTP | [`http_utils.py`](grady/http_utils.py), [`ratelimit.py`](grady/ratelimit.py) | Requests spaced 2.5 s apart; 429 and 5xx retried with exponential backoff. API keys never appear in error messages. |
 | Storage | [`storage.py`](grady/storage.py) | SQLite with a `UNIQUE(source, source_id)` constraint and versioned schema migrations. |
 | Sponsor register | [`sponsors.py`](grady/sponsors.py) | Finds today's CSV through the GOV.UK Content API, since the file name changes with every update. |
@@ -75,7 +75,13 @@ More than half of the adverts in my data came from agencies, which hide the empl
 
 Reed gives about 60% of locations as postcodes (`LS13AD`), while Adzuna gives place names (`Holbeck, Leeds`), so cross-site duplicates never matched. Postcodes are converted with [postcodes.io](https://postcodes.io), and two locations count as the same place if they share a part (`Leeds`). That rule also merged one agency's copies of the same advert posted separately for each London borough.
 
-### 4. Running unattended
+### 4. Healthcare: going to the source
+
+Adzuna and Reed found only about 6 entry-level healthcare jobs a week at sponsors, because most NHS vacancies are posted on NHS Jobs. Its public search feed (documented for developers to "make use of the data") can filter by **NHS pay band**. That matters because NHS seniority is set by band, not by words like "senior" in the title: Band 5 is entry level for nurses and allied health professionals. Searching Band 5 only raised the count to about 250 a week.
+
+The register and NHS Jobs also name trusts differently ("Barts Health National Health Service Trust" vs "Barts Health NHS Trust", "NHS FT" vs "NHS Foundation Trust"). Treating these NHS organisation types as legal suffixes, like "Ltd", raised matched NHS employers from 81% to 89%, with no change to the labelled-set results.
+
+### 5. Running unattended
 
 - **No server, and no database between runs.** Each GitHub Actions run starts on a fresh machine, so the SQLite file lives on a separate one-commit `data` branch: restored at the start of a run, saved at the end.
 - **Failures are expected.** Adzuna returned HTTP 503 during development and crashed the whole run, so one failing source is now skipped. A source that fails for *every* search term (like a wrong API key) still finishes the run but marks it failed, so GitHub alerts me.
@@ -116,6 +122,8 @@ To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`
 ## Future improvements
 
 - Re-check previously rejected companies when the sponsor register updates.
+- Match the remaining NHS naming variants (e.g. "… Hospital NHS Foundation Trust", Welsh health boards), adding them to the labelled set first.
+- Add company job boards (Greenhouse, Lever, Ashby) as a source: jobs straight from employers on the sponsor register.
 - Use full advert text to spot "no sponsorship available" phrases.
 - Check roles against Skilled Worker salary thresholds and occupation codes.
 - Tune search terms and use each API's IT category, to bring in more tech roles.

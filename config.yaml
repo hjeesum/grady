@@ -29,6 +29,9 @@ filters:
     - principal
     - head of
     - director
+    # Only open to the employer's current staff (common on NHS Jobs)
+    - internal applications only
+    - internal candidates only
   # Companies whose jobs are never emailed. Each entry matches the START of a
   # company name, like the agency list below.
   # ITOL Recruit: posts the same "trainee" advert in dozens of places; reported
@@ -43,6 +46,9 @@ filters:
 #   include_keywords: a title must contain at least one (whole words, any case).
 #   exclude_keywords: added to the shared list above.
 #   min_salary:       jobs stating a lower maximum are left out; "not given" is kept.
+#   sources:          optional; which job sources to search (default: adzuna, reed).
+#                     nhs_jobs searches NHS Jobs, Band 5 (entry level) only. Its
+#                     keyword search is loose, so only use it for healthcare terms.
 profiles:
   tech:
     name: Tech
@@ -85,14 +91,19 @@ profiles:
 
   healthcare:
     name: Healthcare
-    # Starting terms, not yet measured.
+    # Starting terms, not yet measured. (Foundation doctor posts are recruited
+    # nationally, not through job sites, so "junior doctor" finds few.)
     terms:
       - newly qualified nurse
-      - band 5 nurse
+      - staff nurse
       - junior doctor
       - pharmacist
       - physiotherapist
       - radiographer
+    sources:
+      - adzuna
+      - reed
+      - nhs_jobs
     include_keywords:
       - nurse
       - nursing

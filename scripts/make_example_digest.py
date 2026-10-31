@@ -48,7 +48,7 @@ def main() -> None:
         preferred_cities=settings.profiles["tech"].filters.preferred_cities,
         sponsor=Section([stored(i, row, "sponsor") for i, row in enumerate(SPONSOR_JOBS)], cap=30),
         agency=Section([stored(i + 100, row, "agency") for i, row in enumerate(AGENCY_JOBS)], cap=10),
-        filtered_out=Counter({"not a tech title": 41, "excluded keyword in title": 12}),
+        filtered_out=Counter({"title outside this profile": 41, "excluded keyword in title": 12}),
     )
     OUTPUT_PATH.parent.mkdir(exist_ok=True)
     OUTPUT_PATH.write_text(render_html(digest, date(2026, 10, 30)), encoding="utf-8")

@@ -11,11 +11,18 @@ def settings():
     return load_settings()
 
 
-def test_all_terms_lists_each_term_once(settings):
-    terms = settings.all_terms
-    assert len(terms) == len(set(terms))
-    for profile in settings.profiles.values():
-        assert set(profile.terms) <= set(terms)
+def test_each_source_gets_its_profiles_terms_once(settings):
+    for source in ["adzuna", "reed", "nhs_jobs"]:
+        terms = settings.terms_for(source)
+        assert len(terms) == len(set(terms))
+        for profile in settings.profiles.values():
+            if source in profile.sources:
+                assert set(profile.terms) <= set(terms)
+
+
+def test_nhs_jobs_only_searches_healthcare_terms(settings):
+    # NHS Jobs keyword search is loose; tech terms would flood the database.
+    assert set(settings.terms_for("nhs_jobs")) == set(settings.profiles["healthcare"].terms)
 
 
 def test_my_profile_exists(settings):
@@ -42,6 +49,7 @@ def test_shared_filters_apply_to_every_profile(settings):
         ("healthcare", "Community B6 Physiotherapist", False),
         ("healthcare", "Sister/Charge Nurse", False),
         ("healthcare", "Physiotherapist - Acute Stroke", True),
+        ("healthcare", "Special Care Baby Unit Nurse *Internal applications only*", False),
         ("engineering", "Graduate Civil Engineer", True),
         ("engineering", "Graduate Software Engineer", False),  # belongs to tech
         ("finance", "Graduate Accountant", True),

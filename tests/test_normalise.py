@@ -21,6 +21,14 @@ from grady.normalise import (
         ("The Hut Group", "hut"),
         ("  Asian African Foods Ltd ", "asian african foods"),
         ("F8 FERROVIAL CONSTRUCTION  LIMITED", "f8 ferrovial construction"),
+        # NHS naming variants found on NHS Jobs vs the sponsor register
+        ("Barts Health NHS Trust", "barts health"),
+        ("Barts Health National Health Service Trust", "barts health"),
+        ("Berkshire Healthcare Foundation Trust", "berkshire healthcare"),
+        ("Berkshire Healthcare NHS Foundation Trust", "berkshire healthcare"),
+        ("Doncaster & Bassetlaw Teaching Hospitals NHS FT", "doncaster and bassetlaw teaching hospitals"),
+        ("Derbyshire Community Health Services NHSFT", "derbyshire community health services"),
+        ("East Midlands Ambulance Service NHS Trust", "east midlands ambulance service"),
     ],
 )
 def test_normalise_company(raw, expected):

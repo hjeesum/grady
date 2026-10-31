@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 
+# Sources a profile searches when config.yaml doesn't list any.
+DEFAULT_SOURCES = ["adzuna", "reed"]
+
 
 @dataclass(frozen=True)
 class SearchSettings:
@@ -33,6 +36,7 @@ class Profile:
     id: str  # the key in config.yaml, e.g. "tech"
     name: str  # shown in the email, e.g. "Tech"
     terms: list[str]
+    sources: list[str]  # which job sources to search with this profile's terms
     filters: FilterSettings  # the shared filters merged with this profile's own
 
 
@@ -50,16 +54,17 @@ class Settings:
     email: EmailSettings
     known_agencies: list[str]
 
-    @property
-    def all_terms(self) -> list[str]:
-        """Every profile's search terms, each once.
+    def terms_for(self, source: str) -> list[str]:
+        """The search terms to send to one source: every profile that uses it, each term once.
 
         "Search once, match many": we fetch these once per run, then pick each
         profile's jobs out of the database. API usage grows with the number of
         terms, not with the number of profiles or people.
         """
         # dict.fromkeys removes duplicates but keeps the original order.
-        return list(dict.fromkeys(t for p in self.profiles.values() for t in p.terms))
+        return list(dict.fromkeys(
+            term for p in self.profiles.values() if source in p.sources for term in p.terms
+        ))
 
 
 def _lower_list(value) -> list[str]:
@@ -85,6 +90,7 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
             id=profile_id,
             name=p["name"],
             terms=list(p["terms"]),
+            sources=list(p.get("sources") or DEFAULT_SOURCES),
             filters=FilterSettings(
                 preferred_cities=list(shared["preferred_cities"]),
                 remote_ok=bool(shared["remote_ok"]),

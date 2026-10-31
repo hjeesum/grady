@@ -58,6 +58,13 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
   all entry level. Shared filters + per-profile include/exclude/min_salary.
   `my_profile` = whose digest goes to EMAIL_TO. Previews: data/previews/<profile>.html.
 - Only tech terms are measured; the other profiles' terms are unmeasured starting points.
+- Sources: adzuna, reed (default per profile) + nhs_jobs (public XML feed, Band 5 only,
+  healthcare profile only because its keyword search is loose). Profiles choose via `sources:`.
+  NHS org types ("NHS Foundation Trust", "NHS FT", "National Health Service") are
+  stripped as legal suffixes in normalise_company. ~250 useful healthcare jobs/week.
+- Next source: company boards. Verified live: Greenhouse boards-api.greenhouse.io/v1/boards/
+  <token>/jobs?content=true, Lever api.lever.co/v0/postings/<co>?mode=json, Ashby
+  api.ashbyhq.com/posting-api/job-board/<org>. Need a company list + probe script.
 - emailed_at still tracks only my_profile's email; friends need a per-recipient table.
 
 ## Layout

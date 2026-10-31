@@ -22,7 +22,7 @@ def make_settings(max_sponsor_jobs=2):
     )
     return SimpleNamespace(
         filters=filters,
-        profile=Profile(id="tech", name="Tech", terms=["x"], filters=filters),
+        profile=Profile(id="tech", name="Tech", terms=["x"], sources=["adzuna"], filters=filters),
         email=EmailSettings(max_sponsor_jobs=max_sponsor_jobs, max_agency_jobs=2),
     )
 
@@ -61,7 +61,7 @@ def test_contains_word(text, phrase, expected):
 def test_rejection_reasons(settings, make_job):
     f = settings.filters
     assert rejection_reason(make_job(title="Senior Software Engineer"), f) == "excluded keyword in title"
-    assert rejection_reason(make_job(title="Finance Graduate"), f) == "not a tech title"
+    assert rejection_reason(make_job(title="Finance Graduate"), f) == "title outside this profile"
     assert rejection_reason(make_job(salary_max=25000), f) == "salary below minimum"
     assert rejection_reason(make_job(salary_max=None), f) is None  # unknown salary is kept
     assert rejection_reason(make_job(), f) is None

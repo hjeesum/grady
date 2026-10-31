@@ -13,6 +13,18 @@ COMPANY_SUFFIXES = {
     "corp", "corporation", "co", "company", "holdings", "group", "uk", "gb",
 }
 
+# The NHS version of "Ltd" vs "Limited": the register says "Barts Health National
+# Health Service Trust" where an advert says "Barts Health NHS Trust", and adverts
+# shorten "NHS Foundation Trust" to "NHS FT" or "Foundation Trust".
+# Also only removed from the end; checked longest first.
+NHS_SUFFIXES = [
+    ["nhs", "foundation", "trust"],
+    ["foundation", "trust"],
+    ["nhs", "trust"],
+    ["nhs", "ft"],
+    ["nhsft"],
+]
+
 # Words that make the same place look different: "Central London", "Greater Manchester",
 # "Glasgow City" (postcodes.io) vs "Glasgow City Centre" (Adzuna).
 LOCATION_NOISE = re.compile(r"\b(central|greater|city centre|city of|city)\b")
@@ -26,12 +38,22 @@ def _simplify(text: str) -> str:
 
 
 def normalise_company(name: str) -> str:
-    words = _simplify(name).split()
+    text = _simplify(name).replace("national health service", "nhs")
+    words = text.split()
     if words and words[0] == "the":
         words = words[1:]
     # Strip suffixes repeatedly: "Thales UK Limited" -> "Thales UK" -> "Thales"
-    while len(words) > 1 and words[-1] in COMPANY_SUFFIXES:
-        words.pop()
+    stripped = True
+    while stripped:
+        stripped = False
+        for suffix in NHS_SUFFIXES:
+            if len(words) > len(suffix) and words[-len(suffix):] == suffix:
+                del words[-len(suffix):]
+                stripped = True
+                break
+        if not stripped and len(words) > 1 and words[-1] in COMPANY_SUFFIXES:
+            words.pop()
+            stripped = True
     return " ".join(words)
 
 

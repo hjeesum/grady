@@ -12,7 +12,7 @@ from datetime import date
 
 import requests
 
-from grady import adzuna, reed
+from grady import adzuna, nhs_jobs, reed
 from grady.agencies import AgencyDetector
 from grady.classify import classify_company
 from grady.config import PROJECT_ROOT, Settings, load_settings
@@ -28,6 +28,7 @@ from grady.storage import JobStore
 SOURCES = {
     "adzuna": adzuna.fetch_all,
     "reed": reed.fetch_all,
+    "nhs_jobs": nhs_jobs.fetch_all,
 }
 
 PREVIEWS_DIR = PROJECT_ROOT / "data" / "previews"
@@ -36,21 +37,22 @@ PREVIEWS_DIR = PROJECT_ROOT / "data" / "previews"
 def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
     """Fetch from every source and store new jobs. Returns sources that failed for every term."""
     search = settings.search
-    terms = settings.all_terms
-    print(f"Searching {len(terms)} terms across {len(settings.profiles)} profiles.")
     all_jobs = []
     failures = Counter()
-    for term in terms:
-        for source_name, fetch_all in SOURCES.items():
+    terms_per_source = {name: settings.terms_for(name) for name in SOURCES}
+    for source_name, fetch_all in SOURCES.items():
+        terms = terms_per_source[source_name]
+        print(f"\n{source_name}: {len(terms)} search terms")
+        for term in terms:
             try:
                 jobs = fetch_all(term, search.max_pages_per_term, search.max_days_old)
             except (ApiError, requests.RequestException) as error:
                 # One source being down shouldn't cost us the others' jobs. Anything
                 # missed is picked up next run, because we ask for several days of jobs.
-                print(f"{source_name:>6} '{term}': FAILED ({error}), skipping")
+                print(f"  '{term}': FAILED ({error}), skipping")
                 failures[source_name] += 1
                 continue
-            print(f"{source_name:>6} '{term}': {len(jobs)} jobs")
+            print(f"  '{term}': {len(jobs)} jobs")
             all_jobs.extend(jobs)
 
     result = store.save_new(all_jobs)
@@ -62,7 +64,7 @@ def fetch_and_store(store: JobStore, settings: Settings) -> list[str]:
 
     # Failing for one term is usually a temporary hiccup. Failing for EVERY term
     # usually means a setup problem, like a wrong API key.
-    return [name for name, count in failures.items() if count == len(terms)]
+    return [name for name, count in failures.items() if count == len(terms_per_source[name])]
 
 
 def classify_unchecked(store: JobStore, settings: Settings) -> None:
@@ -92,6 +94,11 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = load_settings()
+    for profile in settings.profiles.values():
+        unknown = set(profile.sources) - set(SOURCES)
+        if unknown:
+            sys.exit(f"config.yaml: profile '{profile.id}' lists unknown sources {sorted(unknown)}. "
+                     f"Known sources: {sorted(SOURCES)}")
     # Open the database first, so a database problem stops us before we spend API requests.
     store = JobStore()
 

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from grady import adzuna, reed
+from grady import adzuna, nhs_jobs, reed
 from grady.models import detect_work_mode
 from grady.postcodes import looks_like_postcode
 
@@ -71,6 +71,36 @@ def test_reed_parse_job():
 def test_reed_daily_rate_is_not_an_annual_salary():
     job = reed.parse_job({**REED_RESULT, "minimumSalary": 450.0, "maximumSalary": 500.0})
     assert job.salary_min is None and job.salary_max is None
+
+
+NHS_XML = b"""<?xml version='1.0' encoding='UTF-8'?><nhsJobs>
+<vacancyDetails><id>5641570</id><title>Staff Nurse </title>
+<description>Join our friendly ward team...</description>
+<employer>West Suffolk NHS Foundation Trust</employer>
+<salary>\xc2\xa329426.00 to \xc2\xa338471.00</salary>
+<postDate>2026-10-26T12:17:03.548379387</postDate>
+<url>https://beta.jobs.nhs.uk/candidate/jobadvert/E0132-26-2254</url>
+<locations><location>Bury St Edmunds, IP33 2QZ</location><location>Thetford</location></locations>
+</vacancyDetails>
+<vacancyDetails><id>5649327</id><title>Staff Nurse</title><description></description>
+<employer>Elysium Healthcare</employer><salary>Negotiable</salary>
+<postDate>2026-10-08T08:51:05.459373824</postDate>
+<url>https://beta.jobs.nhs.uk/candidate/jobadvert/E0132-26-2308</url>
+<locations><location>Chigwell</location></locations></vacancyDetails>
+</nhsJobs>"""
+
+
+def test_nhs_jobs_parse_response():
+    first, second = nhs_jobs.parse_response(NHS_XML)
+    assert first.source == "nhs_jobs"
+    assert first.source_id == "5641570"
+    assert first.title == "Staff Nurse"
+    assert first.company == "West Suffolk NHS Foundation Trust"
+    assert first.location == "Bury St Edmunds, IP33 2QZ"  # the first location
+    assert (first.salary_min, first.salary_max) == (29426, 38471)
+    # Nanosecond timestamps are trimmed to whole seconds.
+    assert first.posted_at == datetime(2026, 10, 26, 12, 17, 3, tzinfo=timezone.utc)
+    assert (second.salary_min, second.salary_max) == (None, None)  # "Negotiable"
 
 
 @pytest.mark.parametrize(

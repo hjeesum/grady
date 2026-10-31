@@ -25,7 +25,7 @@ def rejection_reason(job: Job, filters: FilterSettings) -> str | None:
     if filters.include_keywords and not any(
         contains_word(job.title, word) for word in filters.include_keywords
     ):
-        return "not a tech title"
+        return "title outside this profile"
     # Only drop a job when it states a salary that's too low; "not given" is kept.
     if job.salary_max is not None and job.salary_max < filters.min_salary:
         return "salary below minimum"
