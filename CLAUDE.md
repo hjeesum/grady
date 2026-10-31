@@ -70,6 +70,16 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
   Add companies with `python -m scripts.find_boards "Name"`: only add if register match
   AND the board has UK jobs (same token can be another company, e.g. wise/cleo = US firms).
   Use legal names when brands are ambiguous (Elastic -> Elasticsearch). 39 companies, Oct 2026.
+- Auto-discovery (user chose; open to scraping, but plan = official data first):
+  (a) [done] scripts/find_tech_sponsors.py: register x Companies House free monthly bulk
+      file (no API key; ~470 MB in data/companies_house/) -> SIC 62/63/58290 + accounts
+      category SMALL or bigger -> data/discovery/tech_sponsors.csv (3,240 companies).
+      Finds 27 of the 39 hand-picked; misses fintech (SIC 64/66), R&D labs (72), retail.
+  (b) next: probe all of them for boards at scale (cache, resume, verify the board is
+      really that company), write a generated board list loaded alongside config.yaml.
+  Later options discussed: more ATS (SmartRecruiters, Workable, Recruitee, Personio,
+  Teamtailor), job-alert emails via Gmail API (LinkedIn etc. without scraping),
+  Workday JSON (light scraping of employers' own sites). Never scrape LinkedIn/Indeed.
 - emailed_at still tracks only my_profile's email; friends need a per-recipient table.
 
 ## Layout
