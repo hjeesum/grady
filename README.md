@@ -14,7 +14,7 @@ The UK government publishes the [Register of Licensed Sponsors](https://www.gov.
 
 Every morning, a GitHub Actions workflow:
 
-1. **Searches** the Adzuna and Reed job APIs across the whole UK, and the job boards of 737 companies on the sponsor register.
+1. **Searches** the Adzuna and Reed job APIs across the whole UK, and the careers sites of 851 companies on the sponsor register.
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
@@ -32,7 +32,7 @@ Recruitment agencies get their own section. Their adverts hide the real employer
 flowchart LR
     A[Adzuna API] --> F[Fetch<br/>pagination, rate limits, retries]
     R[Reed API] --> F
-    B[Company boards<br/>Greenhouse, Lever, Ashby,<br/>SmartRecruiters, Workable,<br/>Recruitee, Teamtailor] --> F
+    B[Company boards<br/>Greenhouse, Lever, Ashby,<br/>SmartRecruiters, Workable,<br/>Recruitee, Teamtailor, Workday] --> F
     F --> D[De-duplicate<br/>company + title + location]
     D --> S[(SQLite)]
     G[gov.uk sponsor register<br/>CSV, 143k rows] --> M[Match company names<br/>exact → unique prefix → fuzzy]
@@ -43,7 +43,7 @@ flowchart LR
 
 | Part | File | Notes |
 |---|---|---|
-| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py), [`nhs_jobs.py`](grady/nhs_jobs.py), [`boards.py`](grady/boards.py) | Official APIs and feeds only, no scraping. Each converts results into one `Job` type, so adding a source is one new file. NHS Jobs (Band 5, entry-level roles only) is kept for a healthcare profile but currently unused. |
+| Job sources | [`adzuna.py`](grady/adzuna.py), [`reed.py`](grady/reed.py), [`nhs_jobs.py`](grady/nhs_jobs.py), [`boards.py`](grady/boards.py) | Official APIs and public feeds, plus employers' own Workday careers sites read politely (slowly, no logins, as robots.txt allows). Never job sites like LinkedIn or Indeed. Each converts results into one `Job` type, so adding a source is one new file. NHS Jobs (Band 5, entry-level roles only) is kept for a healthcare profile but currently unused. |
 | HTTP | [`http_utils.py`](grady/http_utils.py), [`ratelimit.py`](grady/ratelimit.py) | Requests spaced 2.5 s apart; 429 and 5xx retried with exponential backoff. API keys never appear in error messages. |
 | Storage | [`storage.py`](grady/storage.py) | SQLite with a `UNIQUE(source, source_id)` constraint and versioned schema migrations. |
 | Sponsor register | [`sponsors.py`](grady/sponsors.py) | Finds today's CSV through the GOV.UK Content API, since the file name changes with every update. |
@@ -86,7 +86,7 @@ The register and NHS Jobs also name trusts differently ("Barts Health National H
 
 ### 5. Tech: going straight to the employer
 
-Many tech companies publish jobs only on their own careers page, which is often hosted by a job board system: Grady reads seven (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee and Teamtailor). Each has a public, key-free way to list a company's jobs, made for showing them on the company's own website (Teamtailor as an RSS feed). Instead of searching, Grady downloads every open job from a list of companies and keeps the UK ones whose title says "Graduate", "Junior", "New Grad" and similar. Boards list every level, and most experienced roles never say "senior".
+Many tech companies publish jobs only on their own careers page, which is often hosted by a job board system: Grady reads eight (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Recruitee, Teamtailor and Workday). Each has a public, key-free way to list a company's jobs, made for showing them on the company's own website (Teamtailor as an RSS feed). Instead of searching, Grady downloads every open job from a list of companies and keeps the UK ones whose title says "Graduate", "Junior", "New Grad" and similar. Boards list every level, and most experienced roles never say "senior".
 
 The company list starts from the sponsor register, not from the boards. [`scripts/find_boards.py`](scripts/find_boards.py) guesses each company's board name, tries every system, and reports UK jobs and the register match. Two traps it exposed:
 
@@ -108,6 +108,10 @@ Guessing a board from a company's first word was the weak point: `Quantum Metric
 
 Matching against 40 times more names brought back the first-word problem: `crusoe` matched Crusoe Inns, a pub company, to the board of a US cloud firm. Here a first-word match now counts only when the rest of the name is generic ("Airwallex (UK) Limited" yes, "Crusoe Inns" no). I checked the one-word names that were left by reading each board's own text, and listed 12 doubtful ones in `wrong_boards`. A non-sponsor job labelled "sponsor" costs a visa applicant more than a missed one.
 
+**Big employers on Workday.** Banks, pharma and large tech firms (Barclays, GSK, NVIDIA, Salesforce) mostly use Workday, which has no public jobs API. Its careers pages load jobs from a JSON address on the employer's own site, so Grady asks that address directly, the same way the page does: slowly, without logging in, and only where the site's robots.txt allows. Workday addresses can't be guessed (`barclays.wd3.myworkdayjobs.com/External_Career_Site_Barclays`), so they come only from Common Crawl, where counting the results always timed out; the script now reads pages until one comes back empty. Workday boards are too big to download whole, so Grady runs six searches per site ("grad", "junior", "trainee"...) and opens a job's details only when its list entry doesn't show a UK place. Reading the 114 sites one at a time took 54 minutes, so eight sites are read at once, each still at one request per half second: the whole board fetch takes about 12 minutes. On the first run Workday found 54 entry-level UK jobs, including Barclays' technology graduate programmes and a graduate software engineer at Motorola in Glasgow.
+
+Checking the matches by hand found new traps: sites only a company's own staff can apply to (Pfizer, Medtronic), and register names that point to the wrong group company (the Depop site is under Etsy). Those are left out or renamed in the config. Workday also exposed a bug in the UK check: **US towns named after UK ones** ("Manchester, CT", "US - Massachusetts - Cambridge") counted as UK, which made the US retailer Target look like it had 159 UK jobs. Now a "Town, STATE" part is ignored, and a location that names the US must name the UK too.
+
 Before this I tried a different idea and measured it first: find each company's website, follow its "Careers" link, and see which system it uses. UK companies must show their company number on their website, which proved the website was theirs. On 50 random tech sponsors it confirmed only 10 websites, and found **no** board that name-guessing hadn't already found, so I didn't build it.
 
 ### 6. Running unattended
@@ -118,7 +122,7 @@ Before this I tried a different idea and measured it first: find each company's 
 
 ## Testing
 
-165 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+184 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 
@@ -153,7 +157,7 @@ To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`
 - Re-check previously rejected companies when the sponsor register updates.
 - Match the remaining NHS naming variants (e.g. "… Hospital NHS Foundation Trust", Welsh health boards), adding them to the labelled set first.
 - Discover fintech and research labs too (SIC 64, 66, 72), measured first; read board salaries where given.
-- More board systems (SmartRecruiters, Workable, Recruitee, Personio) and job-alert emails via the Gmail API.
+- Finish probing Workable (it blocked my connection for 16 hours after a long run) and read job-alert emails over IMAP.
 - Use full advert text to spot "no sponsorship available" phrases.
 - Check roles against Skilled Worker salary thresholds and occupation codes.
 - Tune search terms and use each API's IT category, to bring in more tech roles.

@@ -4,8 +4,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from grady.boards import URLS, is_entry_level, is_uk_location, parse_board, recent_only
-from grady.config import BOARD_SYSTEMS
+from grady import boards
+from grady.boards import (URLS, fetch_workday, is_entry_level, is_uk_location, parse_board, recent_only,
+                          workday_posted_at, workday_uk_job_count)
+from grady.config import BOARD_SYSTEMS, BoardCompany
 
 GREENHOUSE = {"jobs": [
     {"id": 7343996, "title": "Graduate Software Engineer ", "location": {"name": "London; Remote (UK)"},
@@ -162,6 +164,16 @@ def test_teamtailor_reads_the_rss_feed():
         ("New York, NY", False),
         ("Sydney, New South Wales", False),  # contains "Wales"
         ("Remote", False),
+        # US and Canadian towns named after UK ones (seen on Target's Workday site)
+        ("125 Buckland Hills Dr, Manchester,CT 06042-8701", False),
+        ("Cambridge, MA", False),
+        ("London, ON", False),
+        ("London, United Kingdom; Boston, MA", True),
+        ("Manchester, M1 4BT", True),  # a UK postcode isn't a state
+        ("US - Massachusetts - Cambridge", False),
+        ("3EE MANCHESTER TN (TAX JURISDICTION - COFEE), Knoxville, TN, US", False),
+        ("USA - AL - Birmingham", False),
+        ("United Kingdom, Edinburgh, SC, United States - Remote", True),  # names both
     ],
 )
 def test_is_uk_location(location, uk):
@@ -189,3 +201,95 @@ def test_recent_only_drops_jobs_from_abandoned_boards(make_job):
     # Lyst's old SmartRecruiters board still listed jobs from 2016.
     stale = make_job(title="Display Specialist", posted_at=datetime(2016, 12, 14, tzinfo=timezone.utc))
     assert recent_only([fresh, stale], now) == [fresh]
+
+
+# Workday answers, trimmed from Barclays' careers site (Nov 2026).
+WORKDAY_FACETS = {"facets": [
+    {"facetParameter": "workerSubType", "values": [{"descriptor": "Graduate", "id": "a", "count": 17}]},
+    {"facetParameter": "locationMainGroup", "values": [
+        {"facetParameter": "locations", "values": [
+            {"descriptor": "Glasgow Campus", "id": "b", "count": 30},
+            {"descriptor": "New York, 745 7th Avenue", "id": "c", "count": 50},
+            {"descriptor": "Northampton, Barclays Campus", "id": "d", "count": 7},
+        ]},
+    ]},
+]}
+GLASGOW = {"title": "2027 Data and Analytics Graduate Programme Glasgow", "locationsText": "Glasgow Campus",
+           "externalPath": "/job/Glasgow-Campus/Data-Graduate-Programme_JR-1", "postedOn": "Posted 2 Days Ago"}
+TWO_PLACES = {"title": "Graduate Software Engineer", "locationsText": "2 Locations",
+              "externalPath": "/job/Pune/Graduate-Software-Engineer_JR-2", "postedOn": "Posted Today"}
+NEW_YORK = {"title": "Junior Analyst", "locationsText": "New York, 745 7th Avenue",
+            "externalPath": "/job/New-York/Junior-Analyst_JR-3", "postedOn": "Posted 30+ Days Ago"}
+EXPERIENCED = {"title": "Data Engineer", "locationsText": "Glasgow Campus",
+               "externalPath": "/job/Glasgow-Campus/Data-Engineer_JR-4", "postedOn": "Posted Today"}
+DETAILS = {
+    # The first location is in India, but the job is in London too.
+    TWO_PLACES["externalPath"]: {"location": "Pune", "additionalLocations": ["London, 1 Churchill Place"],
+                                 "country": {"descriptor": "India"}},
+    NEW_YORK["externalPath"]: {"location": "New York, 745 7th Avenue",
+                               "country": {"descriptor": "United States of America"}},
+}
+
+
+class FakeResponse:
+    def __init__(self, data):
+        self.data = data
+
+    def json(self):
+        return self.data
+
+
+def test_one_broken_board_does_not_stop_the_others(monkeypatch):
+    def fake_fetch_board(ats, token, company, keywords):
+        if token == "broken":
+            raise KeyError("externalPath")  # an answer in a shape we don't expect
+        return ["a job"]
+
+    monkeypatch.setattr(boards, "fetch_board", fake_fetch_board)
+    companies = [BoardCompany(name=t, ats="workday", token=t) for t in ("broken", "fine")]
+    results = dict((c.token, r) for c, r in boards.fetch_boards(companies, []))
+    assert isinstance(results["broken"], KeyError)
+    assert results["fine"] == ["a job"]
+
+
+def test_fetch_workday(monkeypatch):
+    searches, details = [], []
+
+    def fake_request(url, params, limiter, description, json_body=None):
+        if json_body:  # a search
+            searches.append(json_body["searchText"])
+            # Every search finds Glasgow; the job is kept once. Workday puts the
+            # total only on the first page.
+            # A job with no link (seen live) is skipped instead of crashing the fetch.
+            no_link = {"title": "Graduate Analyst", "locationsText": "London"}
+            found = ([GLASGOW, TWO_PLACES, NEW_YORK, EXPERIENCED, no_link]
+                     if json_body["searchText"] == "grad" else [GLASGOW])
+            return FakeResponse({"total": len(found), "jobPostings": found})
+        path = url.split("/external_site")[1]
+        details.append(path)
+        return FakeResponse({"jobPostingInfo": DETAILS[path]})
+
+    monkeypatch.setattr(boards, "get_with_retries", fake_request)
+    jobs = fetch_workday("barclays.wd3/external_site", "Barclays", ["graduate", "junior"])
+
+    assert searches == boards.WORKDAY_SEARCHES
+    assert [job.title for job in jobs] == [GLASGOW["title"], TWO_PLACES["title"]]
+    # Only entry-level jobs whose list entry shows no UK place are looked up.
+    assert details == [TWO_PLACES["externalPath"], NEW_YORK["externalPath"]]
+    assert jobs[1].location == "Pune, London, 1 Churchill Place"
+    assert jobs[0].url == ("https://barclays.wd3.myworkdayjobs.com/external_site"
+                           "/job/Glasgow-Campus/Data-Graduate-Programme_JR-1")
+    assert jobs[0].source_id == "barclays.wd3/external_site:Data-Graduate-Programme_JR-1"
+
+
+@pytest.mark.parametrize(
+    "posted_on, days_ago",
+    [("Posted Today", 0), ("Posted Yesterday", 1), ("Posted 3 Days Ago", 3), ("Posted 30+ Days Ago", 30)],
+)
+def test_workday_posted_at(posted_on, days_ago):
+    now = datetime(2026, 11, 2, tzinfo=timezone.utc)
+    assert (now - workday_posted_at(posted_on, now)).days == days_ago
+
+
+def test_workday_uk_job_count_reads_nested_location_filters():
+    assert workday_uk_job_count(WORKDAY_FACETS) == 30  # Glasgow; Northampton isn't in UK_PLACES

@@ -6,10 +6,15 @@ Each offers a public, key-free way to list a company's open jobs, made for
 companies to show their jobs on their own website (Teamtailor as an RSS feed). Unlike Adzuna and Reed there's no search: we download every open job a
 company has, then keep the UK, entry-level ones.
 
+Workday is different: it's the careers site of big employers (Barclays,
+AstraZeneca), with no published API. We read the same data its own web page
+loads, politely: a few searches per company per day, as robots.txt allows.
+
 Which companies to fetch is listed in config.yaml; scripts/find_boards.py finds
 a company's board and checks it's a sponsor before you add it.
 """
 
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -31,6 +36,10 @@ URLS = {
     "workable": "https://apply.workable.com/api/v1/widget/accounts/{token}",
     "recruitee": "https://{token}.recruitee.com/api/offers/",
     "teamtailor": "https://{token}.teamtailor.com/jobs.rss",
+    # The token is "host/site" from the careers site's address: Barclays'
+    # barclays.wd3.myworkdayjobs.com/External_Career_Site_Barclays is
+    # "barclays.wd3/external_career_site_barclays" (Workday ignores the case).
+    "workday": "https://{host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}",
 }
 PARAMS = {
     "greenhouse": {},
@@ -42,7 +51,22 @@ PARAMS = {
     "workable": {},
     "recruitee": {},
     "teamtailor": {},
+    "workday": {},
 }
+
+# Workday can't cheaply list every job (AstraZeneca has 1,200, 20 per answer),
+# but its search works, so we search for entry-level words. "grad" also finds
+# "graduate" and "graduates" (it matches the start of words), but with several
+# words a job needs ALL of them, so each gets its own search. Measured on
+# Barclays, Nov 2026. Titles are still checked with entry_level_keywords after.
+WORKDAY_SEARCHES = ["grad", "junior", "entry level", "early career", "trainee", "apprentice"]
+WORKDAY_PAGE_SIZE = 20  # Workday's maximum
+WORKDAY_MAX_PAGES = 5  # per search: 100 results ("grad" at Barclays: 99)
+# ~6-20 requests per site made Workday take 54 minutes in one thread (Nov 2026).
+# Each site is a different employer's server, so 8 sites are read at once; each
+# site still gets at most one request per WORKDAY_INTERVAL_SECONDS.
+WORKDAY_THREADS = 8
+WORKDAY_INTERVAL_SECONDS = 0.5
 
 # One rate limiter per system: each system's requests are spaced out, and the
 # systems are fetched in parallel (see fetch_boards). One request per
@@ -52,7 +76,7 @@ _rate_limiters = {ats: RateLimiter(min_interval_seconds=10 if ats == "workable" 
                   for ats in URLS}
 
 # Greenhouse has no country field, so UK jobs are recognised from the location
-# text. ("Cambridge, MA" would slip through; rare enough to accept.)
+# text. US towns with UK names are handled below.
 UK_PLACES = [
     "uk", "united kingdom", "great britain", "england", "scotland", "wales", "northern ireland",
     "london", "manchester", "edinburgh", "bristol", "cambridge", "oxford", "birmingham",
@@ -63,6 +87,20 @@ UK_PLACES = [
 # Places abroad that contain a UK name. ("York" isn't in the list above at all,
 # because of "New York".)
 NOT_UK = ["new south wales", "new england"]
+# "Manchester, CT", "Cambridge,MA 02139", "London, ON": US and Canadian towns named
+# after UK ones (Target's Workday site looked like 159 UK jobs). Removed before
+# checking, so "London, UK; Boston, MA" still counts. Capitals only: "ma" or "in"
+# inside ordinary text isn't a state.
+NORTH_AMERICAN_TOWN = re.compile(
+    r"[\w .'-]+,\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|"
+    r"MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|"
+    r"ON|BC|AB|QC|NS|NB|MB|SK|NL|PE)\b")
+# Other ways of writing a US place: "US - Massachusetts - Cambridge" (Amgen),
+# "MANCHESTER TN ..., Binghamton, NY, US" (CACI). If a location names the US, it
+# needs to name the UK too ("United Kingdom", "UK", "GBR", ...) to count.
+US_NAMED = re.compile(r"\b(?:US|USA|United States)\b")
+UK_NAMED = ["uk", "united kingdom", "great britain", "britain", "england", "scotland", "wales",
+            "northern ireland", "gb", "gbr"]
 
 # Jobs older than this are ignored (see recent_only).
 MAX_JOB_AGE_DAYS = 365
@@ -75,25 +113,35 @@ def fetch_boards(
 
     One thread per system, so a slow one (Lever can take seconds per answer)
     doesn't hold up the others. Each thread uses only its own system's rate limiter.
+    Workday gets several threads: see WORKDAY_THREADS.
     """
-    def fetch_system(ats: str):
+    work = []  # (system, its companies) for each thread
+    for ats in URLS:
+        mine = [c for c in companies if c.ats == ats]
+        threads = WORKDAY_THREADS if ats == "workday" else 1
+        work += [(ats, mine[i::threads]) for i in range(threads)]
+
+    def fetch_system(ats_and_companies):
+        ats, companies_here = ats_and_companies
         results = []
-        for company in companies:
-            if company.ats != ats:
-                continue
+        for company in companies_here:
             try:
                 results.append((company, fetch_board(ats, company.token, company.name,
                                                      entry_level_keywords)))
-            except (ApiError, requests.RequestException) as error:
+            # A board answering in an unexpected shape (KeyError etc.) is one
+            # board's error, not a reason to stop every other board.
+            except (ApiError, requests.RequestException, KeyError, ValueError, TypeError) as error:
                 results.append((company, error))
         return results
 
-    with ThreadPoolExecutor(max_workers=len(URLS)) as pool:
-        return [result for results in pool.map(fetch_system, URLS) for result in results]
+    with ThreadPoolExecutor(max_workers=len(work)) as pool:
+        return [result for results in pool.map(fetch_system, work) for result in results]
 
 
 def fetch_board(ats: str, token: str, company: str, entry_level_keywords: list[str]) -> list[Job]:
     """All UK entry-level jobs on one company's board."""
+    if ats == "workday":
+        return fetch_workday(token, company, entry_level_keywords)
     jobs = fetch_uk_jobs(ats, token, company)
     return [job for job in jobs if is_entry_level(job.title, entry_level_keywords)]
 
@@ -117,6 +165,87 @@ def fetch_uk_jobs(ats: str, token: str, company: str) -> list[Job]:
         postings += page["content"]
         if not page["content"] or len(postings) >= page["totalFound"]:
             return recent_only(parse_board(ats, token, company, {"content": postings}))
+
+
+def workday_url(token: str) -> str:
+    host, site = token.split("/")
+    return URLS["workday"].format(host=host, tenant=host.split(".")[0], site=site)
+
+
+def fetch_workday(token: str, company: str, entry_level_keywords: list[str]) -> list[Job]:
+    """UK entry-level jobs on one Workday careers site."""
+    # Its own limiter: this site's requests are spaced out, other sites run alongside.
+    limiter = RateLimiter(min_interval_seconds=WORKDAY_INTERVAL_SECONDS)
+    base, description = workday_url(token), f"workday site '{token}'"
+    postings = {}  # by address: the same job turns up in several searches
+    for search in WORKDAY_SEARCHES:
+        for page in range(WORKDAY_MAX_PAGES):
+            body = {"limit": WORKDAY_PAGE_SIZE, "offset": page * WORKDAY_PAGE_SIZE,
+                    "searchText": search, "appliedFacets": {}}
+            data = get_with_retries(base + "/jobs", {}, limiter, description, json_body=body).json()
+            if page == 0:
+                total = data["total"]  # only the first page has it; later ones say 0
+            for posting in data["jobPostings"]:
+                # Some sites list jobs with no link or no title (seen live); skip those.
+                if "externalPath" in posting and "title" in posting:
+                    postings.setdefault(posting["externalPath"], posting)
+            if (page + 1) * WORKDAY_PAGE_SIZE >= total:
+                break
+
+    jobs = []
+    for posting in postings.values():
+        if not is_entry_level(posting["title"], entry_level_keywords):
+            continue
+        location = posting.get("locationsText", "")
+        if not is_uk_location(location):
+            # Often just "2 Locations", or a UK town we don't list: the job's own
+            # page has its country.
+            info = get_with_retries(base + posting["externalPath"], {}, limiter, description).json()
+            location = _workday_uk_location(info["jobPostingInfo"])
+            if not location:
+                continue
+        jobs.append(_parse_workday(posting, token, company, location))
+    return jobs
+
+
+def _workday_uk_location(info: dict) -> str:
+    """The job's locations if one is in the UK, else ""."""
+    locations = [info.get("location", "")] + info.get("additionalLocations", [])
+    country = (info.get("country") or {}).get("descriptor", "")
+    if country == "United Kingdom" or any(is_uk_location(loc) for loc in locations):
+        return ", ".join(loc for loc in locations if loc)
+    return ""
+
+
+def workday_posted_at(posted_on: str, now: datetime | None = None) -> datetime:
+    """Workday only says "Posted Today", "Posted Yesterday", "Posted 3 Days Ago" or
+    "Posted 30+ Days Ago" (counted as 30: the date is only that precise)."""
+    now = now or datetime.now(timezone.utc)
+    text = posted_on.lower()
+    if "yesterday" in text:
+        days = 1
+    else:
+        number = re.search(r"\d+", text)
+        days = int(number.group()) if number else 0  # "Posted Today"
+    return now - timedelta(days=days)
+
+
+def workday_uk_job_count(data: dict) -> int:
+    """How many jobs a Workday site has in the UK, from the location filters in a /jobs answer.
+
+    Used by discovery: one request instead of reading every job. The filters can
+    be nested (Barclays: locationMainGroup -> locations).
+    """
+    def values(facets, is_location=False):
+        for facet in facets:
+            inner = is_location or any(w in (facet.get("facetParameter") or "").lower()
+                                       for w in ("location", "country"))
+            if "values" in facet:
+                yield from values(facet["values"], inner)
+            elif inner:
+                yield facet
+    return sum(v.get("count") or 0 for v in values(data.get("facets", []))
+               if is_uk_location(v.get("descriptor") or ""))
 
 
 def recent_only(jobs: list[Job], now: datetime | None = None) -> list[Job]:
@@ -163,8 +292,12 @@ def parse_board(ats: str, token: str, company: str, data) -> list[Job]:
 
 
 def is_uk_location(text: str) -> bool:
+    names_us = bool(US_NAMED.search(text))
+    text = NORTH_AMERICAN_TOWN.sub("", text)
     for place in NOT_UK:
         text = text.lower().replace(place, "")
+    if names_us and not any(contains_word(text, place) for place in UK_NAMED):
+        return False
     return any(contains_word(text, place) for place in UK_PLACES)
 
 
@@ -309,4 +442,14 @@ def _parse_teamtailor(p: dict, token: str, company: str) -> Job:
         parsedate_to_datetime(p["pubDate"]).astimezone(timezone.utc),  # "Thu, 29 Oct 2026 13:25:57 +0100"
         # remoteStatus is "hybrid", "fully" (remote) or "none"
         extra_text="remote" if p["remoteStatus"] == "fully" else p["remoteStatus"],
+    )
+
+
+def _parse_workday(p: dict, token: str, company: str, location: str) -> Job:
+    host, site = token.split("/")
+    path = p["externalPath"]  # "/job/Glasgow-Campus/...-Programme-Glasgow_JR-0000129278"
+    return _job(
+        "workday", token, path.rsplit("/", 1)[-1], p["title"], company, location,
+        f"https://{host}.myworkdayjobs.com/{site}{path}",
+        workday_posted_at(p.get("postedOn", "")),
     )

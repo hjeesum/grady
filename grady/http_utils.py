@@ -24,10 +24,15 @@ def get_with_retries(
     rate_limiter: RateLimiter,
     description: str,
     auth: tuple[str, str] | None = None,
+    json_body: dict | None = None,
 ) -> requests.Response:
+    """GET the url, or POST json_body to it if given (Workday takes its search as JSON)."""
     for attempt in range(1, MAX_ATTEMPTS + 1):
         rate_limiter.wait()
-        response = requests.get(url, params=params, auth=auth, timeout=TIMEOUT_SECONDS)
+        if json_body is None:
+            response = requests.get(url, params=params, auth=auth, timeout=TIMEOUT_SECONDS)
+        else:
+            response = requests.post(url, json=json_body, timeout=TIMEOUT_SECONDS)
         if response.status_code == 200:
             return response
 
