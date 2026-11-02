@@ -126,6 +126,20 @@ boards:
     - greenhouse:prophet  # Prophet plc (Leeds software) vs Prophet (brand consultancy)
     - ashby:perk          # Perk UK Ltd (since 1999) vs Perk, formerly TravelPerk
     - ashby:harmonic      # Harmonic (UK), video tech, vs Harmonic, the AI company
+    # Found via Common Crawl (Nov 2026). When unsure, left out: a non-sponsor
+    # job shown as "sponsor" costs more than missing one.
+    - ashby:applied       # Applied Group vs Applied Intuition (US)
+    - greenhouse:arco     # Arco Ltd (UK safety) vs ARCO Companies (US construction)
+    - recruitee:msf       # MSF Group (Bluebird Care) vs MSF, the charity
+    - greenhouse:impact   # Impact vs impact.com
+    - ashby:kernel        # Kernel Limited vs Kernel, an AI start-up
+    - greenhouse:map      # MAP Group (UK): board only says "MAP"
+    - ashby:outset        # Outset Limited vs Outset, a US AI start-up
+    - ashby:cinder        # Cinder vs Cinder, a US start-up
+    - teamtailor:showcase # Showcase Group: board only says "Showcase"
+    - ashby:ramp          # The Ramp vs Ramp, the US fintech
+    - greenhouse:toast    # Toast vs Toast, the US restaurant software firm
+    - ashby:velocity      # Velocity UK Holdings vs Velocity, a fintech
   # Checked with find_boards (Oct 2026): each has a board with UK jobs, and the
   # name matches the sponsor register. Use the legal name when the brand is
   # ambiguous ("Elastic" matched a different company, Elastic Path Software).

@@ -1,5 +1,8 @@
 """Look for job boards for every company in data/discovery/tech_sponsors.csv.
 
+Also checks the boards scripts/crawl_boards.py found in Common Crawl
+(data/discovery/crawl_candidates.csv), if that has been run.
+
 Run from the project root, after scripts/find_tech_sponsors.py:
     python -m scripts.discover_boards                  (every system)
     python -m scripts.discover_boards workable lever   (only these; the others' saved
@@ -36,6 +39,7 @@ from grady.ratelimit import RateLimiter
 from grady.sponsors import download_register, load_sponsor_names
 
 INPUT_PATH = PROJECT_ROOT / "data" / "discovery" / "tech_sponsors.csv"
+CRAWL_PATH = PROJECT_ROOT / "data" / "discovery" / "crawl_candidates.csv"
 CACHE_PATH = PROJECT_ROOT / "data" / "discovery" / "probe_cache.json"
 OUTPUT_PATH = PROJECT_ROOT / "boards_discovered.yaml"
 
@@ -145,34 +149,38 @@ def probe(session, limiter, ats: str, token: str):
     return GAVE_UP
 
 
-def probe_system(ats: str, companies: list[dict], cache: dict, keywords: list[str],
-                 first_words: Counter) -> None:
-    """Probe every company on one system. Runs in its own thread."""
+def guessed_tokens(register_name: str, first_words: Counter) -> list[str]:
+    """Every board name we guess for a company, most likely first."""
+    names = name_variants(register_name)
+    return list(dict.fromkeys(t for name in names for t in board_names(name, first_words)))
+
+
+def probe_system(ats: str, boards: list[tuple[str, str]], cache: dict, keywords: list[str]) -> None:
+    """Probe (board name, register name) pairs on one system. Runs in its own thread."""
     session = requests.Session()
     limiter = RateLimiter(min_interval_seconds=SLOWER_SYSTEMS.get(ats, REQUEST_INTERVAL_SECONDS))
     gave_up = 0
-    for i, company in enumerate(companies, 1):
-        names = name_variants(company["register_name"])
-        for token in dict.fromkeys(t for name in names for t in board_names(name, first_words)):
-            key = f"{ats}:{token}"
-            if key in cache:
-                continue
-            found = probe(session, limiter, ats, token)
-            if found is GAVE_UP:
-                gave_up += 1
-                continue
-            result = None
-            if found is not None:
-                uk_jobs = found["uk_jobs"]
-                result = {
-                    "uk_jobs": len(uk_jobs),
-                    "entry_level": [j.title for j in uk_jobs if is_entry_level(j.title, keywords)],
-                    "same_company": is_same_company(token, names, board_text(ats, found["data"])),
-                }
-            with _cache_lock:
-                cache[key] = result
-        if i % 200 == 0:
-            print(f"  {ats}: {i}/{len(companies)} companies")
+    for i, (token, register_name) in enumerate(boards, 1):
+        key = f"{ats}:{token}"
+        if key in cache:
+            continue
+        found = probe(session, limiter, ats, token)
+        if found is GAVE_UP:
+            gave_up += 1
+            continue
+        result = None
+        if found is not None:
+            uk_jobs = found["uk_jobs"]
+            result = {
+                "uk_jobs": len(uk_jobs),
+                "entry_level": [j.title for j in uk_jobs if is_entry_level(j.title, keywords)],
+                "same_company": is_same_company(token, name_variants(register_name),
+                                                board_text(ats, found["data"])),
+            }
+        with _cache_lock:
+            cache[key] = result
+        if i % 500 == 0:
+            print(f"  {ats}: {i}/{len(boards)} board names")
             save_cache(cache)
     if gave_up:
         print(f"  {ats}: {gave_up} names not answered (too many requests?); run again to retry them")
@@ -199,9 +207,23 @@ def display_name(register_name: str) -> str:
     return TRADING_AS.split(register_name)[-1].strip()
 
 
+def read_csv(path) -> list[dict]:
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def is_good(cache: dict, ats: str, token: str, wrong_boards: list[str]) -> bool:
+    """Was this board found, with UK jobs, naming the company, and not marked wrong by hand?"""
+    result = cache.get(f"{ats}:{token}")
+    return bool(result and result["uk_jobs"] > 0 and result["same_company"]
+                and f"{ats}:{token}" not in wrong_boards)
+
+
 def main() -> None:
-    with open(INPUT_PATH, encoding="utf-8", newline="") as f:
-        companies = list(csv.DictReader(f))
+    companies = read_csv(INPUT_PATH)
+    crawled = read_csv(CRAWL_PATH)
     settings = load_settings()
     keywords = settings.boards.entry_level_keywords
     first_words = count_first_words(load_sponsor_names(download_register()))
@@ -210,15 +232,27 @@ def main() -> None:
     unknown = set(systems) - set(URLS)
     if unknown:
         sys.exit(f"Unknown systems {sorted(unknown)}. Known: {', '.join(URLS)}")
-    print(f"Probing {len(companies):,} companies on {', '.join(systems)} "
-          f"({len(cache):,} answers already cached)...")
+    print(f"Probing {len(companies):,} companies and {len(crawled):,} Common Crawl boards "
+          f"on {', '.join(systems)} ({len(cache):,} answers already cached)...")
+
+    # Each system's (board name -> register name) to ask about: our guesses for
+    # every tech sponsor on every system, plus the boards Common Crawl saw.
+    to_probe = {ats: {} for ats in systems}
+    for company in companies:
+        for token in guessed_tokens(company["register_name"], first_words):
+            for ats in systems:
+                to_probe[ats].setdefault(token, company["register_name"])
+    for board in crawled:
+        if board["ats"] in to_probe:
+            to_probe[board["ats"]].setdefault(board["token"], board["register_name"])
 
     try:
         with ThreadPoolExecutor(max_workers=sum(THREADS_PER_SYSTEM[s] for s in systems)) as pool:
             futures = [
-                # companies[i::n] gives thread i every n-th company.
-                pool.submit(probe_system, ats, companies[i::n], cache, keywords, first_words)
-                for ats in systems for n in [THREADS_PER_SYSTEM[ats]] for i in range(n)
+                # boards[i::n] gives thread i every n-th board name.
+                pool.submit(probe_system, ats, boards[i::n], cache, keywords)
+                for ats in systems for boards in [list(to_probe[ats].items())]
+                for n in [THREADS_PER_SYSTEM[ats]] for i in range(n)
             ]
             for future in futures:
                 future.result()  # re-raises any error from the thread
@@ -228,26 +262,35 @@ def main() -> None:
     # One board per company: the first good one in guess order.
     # Skip boards already in config.yaml, and boards found twice (Palantir has two
     # entries on the register: Palantir UK and Palantir Technologies UK).
+    # A company found both ways keeps the board from its name guesses.
+    wrong = settings.boards.wrong_boards
     seen = {(c.ats, c.token) for c in settings.boards.companies if not c.discovered}
-    found, rejected = [], 0
+    done_companies = set()
+    found = []
+
+    def add(register_name: str, ats: str, token: str) -> None:
+        done_companies.add(register_name)
+        if (ats, token) not in seen:
+            seen.add((ats, token))
+            found.append((display_name(register_name), ats, token, cache[f"{ats}:{token}"]))
+
     for company in companies:
-        names = name_variants(company["register_name"])
-        for token in dict.fromkeys(t for name in names for t in board_names(name, first_words)):
-            hits = [(ats, cache.get(f"{ats}:{token}")) for ats in URLS]
-            hits = [(ats, r) for ats, r in hits if r and r["uk_jobs"] > 0]
-            good = [(ats, r) for ats, r in hits
-                    if r["same_company"] and f"{ats}:{token}" not in settings.boards.wrong_boards]
-            rejected += len(hits) - len(good)
+        for token in guessed_tokens(company["register_name"], first_words):
+            good = [ats for ats in URLS if is_good(cache, ats, token, wrong)]
             if good:
-                ats, result = max(good, key=lambda hit: hit[1]["uk_jobs"])
-                if (ats, token) not in seen:
-                    seen.add((ats, token))
-                    found.append((display_name(company["register_name"]), ats, token, result))
+                add(company["register_name"], max(good, key=lambda a: cache[f"{a}:{token}"]["uk_jobs"]), token)
                 break
+    for board in crawled:
+        if board["register_name"] not in done_companies and is_good(cache, board["ats"], board["token"], wrong):
+            add(board["register_name"], board["ats"], board["token"])
+
+    rejected = sum(1 for result in cache.values()
+                   if result and result["uk_jobs"] > 0 and not result["same_company"])
 
     lines = [
         "# GENERATED by `python -m scripts.discover_boards`: don't edit by hand, run it again.",
-        "# Job boards of tech companies on the sponsor register (found via Companies House).",
+        "# Job boards of companies on the sponsor register: tech sponsors (found via Companies",
+        "# House) and any sponsor whose board is in Common Crawl (scripts/crawl_boards.py).",
         "# Each has UK jobs and mentions the company's name in its own adverts.",
         "# To stop seeing a company, add it to filters.blocked_companies in config.yaml.",
         "companies:",

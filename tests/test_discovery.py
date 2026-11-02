@@ -4,7 +4,9 @@ from collections import Counter
 
 import pytest
 
-from scripts.discover_boards import board_names, board_text, is_same_company, name_variants
+from grady.boards import URLS
+from scripts.crawl_boards import PATTERNS, board_token, match_register
+from scripts.discover_boards import board_names, board_text, is_good, is_same_company, name_variants
 from tests.test_boards import RECRUITEE, SMARTRECRUITERS, TEAMTAILOR, WORKABLE
 from scripts.find_tech_sponsors import is_tech
 
@@ -67,3 +69,56 @@ def test_is_same_company(token, names, text, same):
 )
 def test_board_text_finds_the_company_name(ats, data, name):
     assert name in board_text(ats, data).lower()
+
+
+def test_every_board_system_can_be_found_in_common_crawl():
+    assert set(PATTERNS) == set(URLS)
+
+
+@pytest.mark.parametrize(
+    "ats, url, token",
+    [
+        ("greenhouse", "https://boards.greenhouse.io/monzo/jobs/7343996", "monzo"),
+        ("greenhouse", "https://boards.greenhouse.io/embed/job_board?for=Monzo", "monzo"),
+        ("greenhouse", "https://job-boards.greenhouse.io/monzo", "monzo"),
+        ("lever", "https://jobs.lever.co/palantir/6ed76ce8/apply", "palantir"),
+        ("smartrecruiters", "https://jobs.smartrecruiters.com/Wise/744000158812629", "wise"),
+        ("recruitee", "https://bunq.recruitee.com/o/graduate-data-scientist", "bunq"),
+        ("teamtailor", "http://node4.teamtailor.com/jobs", "node4"),
+        ("lever", "https://jobs.lever.co/", None),
+    ],
+)
+def test_board_token(ats, url, token):
+    assert board_token(ats, url) == token
+
+
+def test_match_register_skips_names_that_fit_two_sponsors():
+    register = {"duffel technology": "Duffel Technology Ltd", "spark": "Spark Ltd",
+                "spark uk": "SPARK (UK) LIMITED t/a Spark"}
+    tokens = {"lever": {"duffeltechnology", "spark", "unknown"}}
+    found, ambiguous = match_register(tokens, register)
+    assert found == [("Duffel Technology Ltd", "lever", "duffeltechnology")]
+    assert ambiguous == 1  # "spark" could be either Spark
+
+
+def test_match_register_needs_more_than_a_first_word():
+    register = {"airwallex uk": "Airwallex (UK) Limited", "crusoe inns": "Crusoe Inns Limited"}
+    found, _ = match_register({"ashby": {"airwallex", "crusoe"}}, register)
+    # "UK" says nothing about the company, "Inns" does: Crusoe Inns is a pub
+    # company, and the "crusoe" board belongs to a US cloud firm.
+    assert found == [("Airwallex (UK) Limited", "ashby", "airwallex")]
+
+
+def test_is_good():
+    cache = {
+        "lever:monzo": {"uk_jobs": 3, "entry_level": [], "same_company": True},
+        "lever:wise": {"uk_jobs": 3, "entry_level": [], "same_company": False},
+        "lever:empty": {"uk_jobs": 0, "entry_level": [], "same_company": True},
+        "lever:none": None,
+    }
+    assert is_good(cache, "lever", "monzo", [])
+    assert not is_good(cache, "lever", "monzo", ["lever:monzo"])  # marked wrong by hand
+    assert not is_good(cache, "lever", "wise", [])  # name not in its adverts
+    assert not is_good(cache, "lever", "empty", [])
+    assert not is_good(cache, "lever", "none", [])
+    assert not is_good(cache, "lever", "never-asked", [])
