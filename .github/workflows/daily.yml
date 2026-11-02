@@ -40,6 +40,7 @@ jobs:
       # DATA_REPO_TOKEN can read and write grady-data and nothing else.
       - name: Restore the job database
         env:
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
           DATA_URL: https://x-access-token:${{ secrets.DATA_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/grady-data.git
         run: |
           mkdir -p data
@@ -47,6 +48,12 @@ jobs:
           # start with an empty database and email every old job again.
           if ! branches=$(git ls-remote --heads "$DATA_URL" data); then
             echo "Can't reach grady-data: check the DATA_REPO_TOKEN secret."
+            # Say why, without printing the token: whose token it is (401 = not
+            # a valid token) and whether it can see the repository (404 = can't).
+            auth="Authorization: Bearer $DATA_REPO_TOKEN"
+            echo "Token belongs to: $(curl -s -H "$auth" https://api.github.com/user | jq -r '.login // .message')"
+            echo "grady-data answers HTTP $(curl -s -o /dev/null -w '%{http_code}' -H "$auth" \
+              https://api.github.com/repos/${{ github.repository_owner }}/grady-data)"
             exit 1
           fi
           if [ -n "$branches" ]; then
