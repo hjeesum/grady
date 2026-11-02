@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grady: UK visa-sponsor graduate tech jobs</title>
+<meta name="description" content="Graduate and junior tech jobs at UK employers licensed to sponsor visas. Updated every morning.">
+<link rel="alternate" type="application/rss+xml" title="Grady jobs" href="feed.xml">
+<style>
+  :root {
+    --bg: #ffffff; --text: #1f2328; --muted: #57606a; --line: #d8dee4;
+    --card: #f6f8fa; --link: #0969da; --badge: #dafbe1; --badge-text: #116329;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --text: #e6edf3; --muted: #8d96a0; --line: #30363d;
+      --card: #161b22; --link: #4493f8; --badge: #12261e; --badge-text: #3fb950;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .intro, .meta, .note, footer { color: var(--muted); }
+  .intro { margin: 0 0 16px; }
+  a { color: var(--link); }
+  input[type=search] { width: 100%; padding: 10px 12px; font-size: 16px; color: var(--text);
+                       background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+  .meta { margin: 8px 0 16px; font-size: 14px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .title { font-weight: 600; font-size: 17px; text-decoration: none; }
+  .title:hover { text-decoration: underline; }
+  .details { font-size: 14px; color: var(--muted); margin-top: 2px; }
+  .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px;
+           background: var(--badge); color: var(--badge-text); margin-left: 6px; vertical-align: 1px; }
+  /* Adzuna's terms: each Adzuna job labelled "Adzuna", at least 116 x 23 px, linked to Adzuna. */
+  .adzuna { display: inline-block; min-width: 116px; min-height: 23px; line-height: 23px;
+            margin-top: 6px; text-align: center; font-size: 13px; font-weight: 600;
+            border: 1px solid var(--line); border-radius: 4px; text-decoration: none; }
+  .note { font-size: 14px; background: var(--card); border: 1px solid var(--line);
+          border-radius: 8px; padding: 12px 14px; margin: 0 0 16px; }
+  footer { font-size: 13px; margin-top: 32px; }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Grady</h1>
+  <p class="intro">Graduate and junior {{ profile_name | lower }} jobs at UK employers on the government's
+    register of licensed visa sponsors. Found automatically, updated every morning.</p>
+
+  <p class="note">A sponsor licence means the employer <em>can</em> sponsor a visa, not that it will
+    for every role. Always check with the employer before applying.</p>
+
+  <input type="search" id="search" placeholder="Search title, company or city" aria-label="Search jobs">
+  <p class="meta"><span id="count">{{ jobs | length }}</span> jobs found in the last {{ days }} days ·
+    updated {{ now.strftime("%d %b %Y, %H:%M") }} UTC · <a href="feed.xml">RSS feed</a></p>
+
+  <ul id="jobs">
+  {% for stored in jobs %}
+    {% set job = stored.job %}
+    <li>
+      <a class="title" href="{{ job.url }}" rel="nofollow noopener" target="_blank">{{ job.title }}</a>
+      {% if job.work_mode != "unknown" %}<span class="badge">{{ job.work_mode }}</span>{% endif %}
+      <div class="details">{{ job.company }} · {{ job.location or "Location not given" }} ·
+        {{ format_salary(job) }} · posted {{ job.posted_at.strftime("%d %b") }}</div>
+      {% if job.source == "adzuna" %}
+      <a class="adzuna" href="https://www.adzuna.co.uk" rel="noopener" target="_blank">Adzuna</a>
+      {% endif %}
+    </li>
+  {% else %}
+    <li>No jobs right now. Check back tomorrow.</li>
+  {% endfor %}
+  </ul>
+  <p id="none" hidden>No jobs match your search.</p>
+
+  <footer>
+    Built by <a href="https://github.com/hjeesum/grady">Grady</a>, an open-source project:
+    job boards, Workday and the Adzuna API, matched against the
+    <a href="https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers">register of licensed sponsors</a>.
+  </footer>
+</main>
+<script>
+  // Search: hide the jobs whose text doesn't contain every word typed.
+  const search = document.getElementById("search");
+  const items = [...document.querySelectorAll("#jobs li")];
+  search.addEventListener("input", () => {
+    const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const item of items) {
+      const match = words.every(w => item.textContent.toLowerCase().includes(w));
+      item.hidden = !match;
+      if (match) shown++;
+    }
+    document.getElementById("count").textContent = shown;
+    document.getElementById("none").hidden = shown > 0;
+  });
+</script>
+</body>
+</html>

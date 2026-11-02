@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Grady: UK visa-sponsor graduate {{ profile_name | lower }} jobs</title>
+  <link>{{ site_url }}</link>
+  <description>Graduate and junior jobs at UK employers licensed to sponsor visas.</description>
+  <lastBuildDate>{{ now.strftime("%a, %d %b %Y %H:%M:%S +0000") }}</lastBuildDate>
+  {% for stored in jobs %}
+  {% set job = stored.job %}
+  <item>
+    <title>{{ job.title }} at {{ job.company }}</title>
+    <link>{{ job.url }}</link>
+    <guid isPermaLink="false">{{ job.source }}:{{ job.source_id }}</guid>
+    <pubDate>{{ job.posted_at.strftime("%a, %d %b %Y %H:%M:%S +0000") }}</pubDate>
+    <description>{{ job.location or "Location not given" }} · {{ format_salary(job) }}{% if job.source == "adzuna" %} · Jobs by Adzuna (https://www.adzuna.co.uk){% endif %}</description>
+  </item>
+  {% endfor %}
+</channel>
+</rss>

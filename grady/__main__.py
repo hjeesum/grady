@@ -20,6 +20,8 @@ from grady.digest import build_digest, render_html, render_text, subject
 from grady.emailer import send_email
 from grady.http_utils import ApiError
 from grady.matching import SponsorMatcher
+from grady.site import SITE_DIR, build_site
+from grady.site import since as site_since
 from grady.models import Job
 from grady.sponsors import download_register, load_sponsor_names
 from grady.storage import JobStore
@@ -144,6 +146,11 @@ def main() -> None:
               f"{len(digest.agency.all_jobs):>3} agency jobs")
         digests[profile.id] = digest
     print(f"Previews saved in {PREVIEWS_DIR}")
+
+    # The public page shows the last few weeks, emailed or not, so it's built
+    # from its own query. Published by the workflow with GitHub Pages.
+    shown = build_site(store.sponsor_jobs_since(site_since()), settings.profiles[settings.my_profile])
+    print(f"Public page: {shown} jobs, saved in {SITE_DIR}")
 
     digest = digests[settings.my_profile]
     html = render_html(digest, today)

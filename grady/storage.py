@@ -160,13 +160,23 @@ class JobStore:
 
     def jobs_to_email(self) -> list[StoredJob]:
         """Sponsor and agency jobs that haven't been sent in a digest yet."""
+        return self._stored_jobs(
+            "WHERE emailed_at IS NULL AND sponsor_status IN ('sponsor', 'agency')")
+
+    def sponsor_jobs_since(self, since: datetime) -> list[StoredJob]:
+        """Sponsor jobs we first found after `since`, emailed or not (for the public page)."""
+        return self._stored_jobs(
+            "WHERE sponsor_status = 'sponsor' AND first_seen_at >= ?", (since.isoformat(),))
+
+    def _stored_jobs(self, where: str, params: tuple = ()) -> list[StoredJob]:
         rows = self.conn.execute(
-            """
+            f"""
             SELECT id, source, source_id, title, company, location, work_mode,
                    salary_min, salary_max, url, posted_at, sponsor_status, sponsor_name
             FROM jobs
-            WHERE emailed_at IS NULL AND sponsor_status IN ('sponsor', 'agency')
-            """
+            {where}
+            """,
+            params,
         ).fetchall()
         return [
             StoredJob(
