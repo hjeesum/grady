@@ -41,6 +41,9 @@
             border: 1px solid var(--line); border-radius: 4px; text-decoration: none; }
   .note { font-size: 14px; background: var(--card); border: 1px solid var(--line);
           border-radius: 8px; padding: 12px 14px; margin: 0 0 16px; }
+  .signup { margin: 0 0 16px; }
+  .button { display: inline-block; margin-left: 6px; padding: 6px 14px; border-radius: 8px;
+            background: var(--link); color: var(--bg); font-weight: 600; text-decoration: none; }
   footer { font-size: 13px; margin-top: 32px; }
   [hidden] { display: none; }
 </style>
@@ -50,6 +53,11 @@
   <h1>Grady</h1>
   <p class="intro">Graduate and junior {{ profile_name | lower }} jobs at UK employers on the government's
     register of licensed visa sponsors. Found automatically, updated every morning.</p>
+
+  {% if signup_url %}
+  <p class="signup">Want these in your inbox every morning?
+    <a class="button" href="{{ signup_url }}" rel="noopener" target="_blank">Get them by email</a></p>
+  {% endif %}
 
   <p class="note">A sponsor licence means the employer <em>can</em> sponsor a visa, not that it will
     for every role. Always check with the employer before applying.</p>

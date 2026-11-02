@@ -149,7 +149,8 @@ def main() -> None:
 
     # The public page shows the last few weeks, emailed or not, so it's built
     # from its own query. Published by the workflow with GitHub Pages.
-    shown = build_site(store.sponsor_jobs_since(site_since()), settings.profiles[settings.my_profile])
+    shown = build_site(store.sponsor_jobs_since(site_since()), settings.profiles[settings.my_profile],
+                       signup_url=settings.signup_url)
     print(f"Public page: {shown} jobs, saved in {SITE_DIR}")
 
     digest = digests[settings.my_profile]

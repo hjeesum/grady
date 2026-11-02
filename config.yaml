@@ -213,6 +213,12 @@ boards:
     - {name: Protiviti Limited, ats: workday, token: roberthalf.wd1/protivitiemeacareers}
     - {name: World Vision International Global Centre, ats: workday, token: worldvision.wd1/worldvisioninternational}
 
+site:
+  # The public job page (https://hjeesum.github.io/grady/). Link to a Google Form
+  # where friends leave their email; answers go only to your Google account, and
+  # you copy new addresses into the SUBSCRIBERS secret. Empty = no sign-up box.
+  signup_url: https://docs.google.com/forms/d/e/1FAIpQLSdaAlknA8YCpuzZ8QJ50ZQu3UVw0-vhmmWo8eZwi8ldtGZnog/viewform
+
 email:
   # The most jobs to list in each section; the email says how many more there are.
   max_sponsor_jobs: 30

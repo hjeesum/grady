@@ -57,7 +57,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        SUBSCRIBERS (optional, friends).
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (192 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (193 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
@@ -146,6 +146,8 @@ Adzuna day: ~250 requests/day limit) -> (2) [done Nov 2026] public job page + RS
   SUBSCRIBERS (commas/new lines) -> same digest as Bcc (emailer.parse_subscribers).
   Addresses only in GitHub Secrets / .env. Footer: "reply to stop". emailed_at is shared,
   fine while everyone gets the one tech digest; per-recipient table only if profiles differ.
+  Sign-up: config.yaml site.signup_url = Google Form (answers private to the user) ->
+  "Get them by email" button on the page; user copies new addresses into SUBSCRIBERS by hand.
 
 ## Layout
 - `grady/` — Python package. Run with `python -m grady`.

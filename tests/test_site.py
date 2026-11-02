@@ -67,3 +67,10 @@ def test_sponsor_jobs_since_includes_emailed_jobs_but_not_others(tmp_path, make_
     assert [s.job.company for s in found] == ["Sponsor Ltd"]
     assert store.sponsor_jobs_since(datetime.now(timezone.utc) + timedelta(days=1)) == []
     store.close()
+
+
+def test_signup_box_only_when_a_form_is_set(profile, stored, tmp_path):
+    build_site([stored(1)], profile, NOW, tmp_path)
+    assert "Get them by email" not in (tmp_path / "index.html").read_text(encoding="utf-8")
+    build_site([stored(1)], profile, NOW, tmp_path, signup_url="https://forms.gle/abc")
+    assert 'href="https://forms.gle/abc"' in (tmp_path / "index.html").read_text(encoding="utf-8")
