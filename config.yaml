@@ -140,6 +140,19 @@ boards:
     - ashby:ramp          # The Ramp vs Ramp, the US fintech
     - greenhouse:toast    # Toast vs Toast, the US restaurant software firm
     - ashby:velocity      # Velocity UK Holdings vs Velocity, a fintech
+    # Workday (Nov 2026). Token = "host/site".
+    - workday:applied.wd501/applied       # Applied Group vs Applied Industrial (US)
+    - workday:benchmark.wd1/pgh_careers   # Benchmark Group vs Benchmark Electronics (US)
+    - workday:circle.wd1/circle           # "Circle" on the register: can't tell which Circle
+    - workday:citi.wd5/2                  # "Citi Group" on the register isn't Citigroup
+    - workday:fox.wd1/domestic            # The Fox (a pub) vs Fox Corporation (US)
+    - workday:gcu.wd1/gce                 # GCU (UK) vs Grand Canyon Education (US)
+    - workday:healthcare.wd1/search       # The Healthcare Group vs an unknown "healthcare" site
+    - workday:target.wd5/targetcareers    # Target Group vs Target, the US retailer
+    # Internal sites: only the company's own staff can apply.
+    - workday:fticonsulting.wd108/fticonsultingcareersprivate
+    - workday:medtronic.wd1/redeploymentmedtroniccareers
+    - workday:pfizer.wd1/internaljobs
   # Checked with find_boards (Oct 2026): each has a board with UK jobs, and the
   # name matches the sponsor register. Use the legal name when the brand is
   # ambiguous ("Elastic" matched a different company, Elastic Path Software).
@@ -187,6 +200,18 @@ boards:
     - {name: Zilch, ats: ashby, token: zilch}
     # "wise" on Greenhouse is a US firm; Wise (the UK fintech) is on SmartRecruiters.
     - {name: Wise Payments, ats: smartrecruiters, token: wise}
+    # Workday sites (found via Common Crawl, Nov 2026). Listed by hand because
+    # several register companies start with the same word ("Blackrock" includes a
+    # café), so discovery rightly refuses to guess. Token = "host/site".
+    - {name: Barclays Bank PLC, ats: workday, token: barclays.wd3/external_career_site_barclays}
+    - {name: BlackRock Investment Management (UK) Limited, ats: workday, token: blackrock.wd1/blackrock_professional}
+    # Discovery matched these sites to the wrong register name; these are the
+    # register companies that actually employ their UK staff.
+    - {name: Depop Limited, ats: workday, token: etsy.wd5/depop_careers}
+    - {name: Neuberger Berman Europe Limited, ats: workday, token: nb.wd1/nbcareers}
+    - {name: Northern Trust Management Services Limited, ats: workday, token: ntrs.wd1/northerntrust}
+    - {name: Protiviti Limited, ats: workday, token: roberthalf.wd1/protivitiemeacareers}
+    - {name: World Vision International Global Centre, ats: workday, token: worldvision.wd1/worldvisioninternational}
 
 email:
   # The most jobs to list in each section; the email says how many more there are.

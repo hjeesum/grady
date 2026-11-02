@@ -16,7 +16,8 @@ DISCOVERED_BOARDS_FILE = "boards_discovered.yaml"
 DEFAULT_SOURCES = ["adzuna", "reed"]
 
 # Job board systems grady/boards.py can read (a test checks the two lists agree).
-BOARD_SYSTEMS = ["greenhouse", "lever", "ashby", "smartrecruiters", "workable", "recruitee", "teamtailor"]
+BOARD_SYSTEMS = ["greenhouse", "lever", "ashby", "smartrecruiters", "workable", "recruitee", "teamtailor",
+                 "workday"]
 
 
 @dataclass(frozen=True)

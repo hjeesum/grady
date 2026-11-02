@@ -32,7 +32,8 @@ from xml.etree import ElementTree
 
 import requests
 
-from grady.boards import URLS, PARAMS, is_entry_level, parse_board, read_response, recent_only
+from grady.boards import (URLS, PARAMS, is_entry_level, parse_board, read_response, recent_only,
+                          workday_uk_job_count, workday_url)
 from grady.config import PROJECT_ROOT, load_settings
 from grady.normalise import normalise_company
 from grady.ratelimit import RateLimiter
@@ -51,13 +52,18 @@ SLOWER_SYSTEMS = {"workable": 12}
 # Lever's server takes 1-13 seconds to answer, so the wait is on their side, not
 # our rate limit: give it more threads, each working through a share of the companies.
 THREADS_PER_SYSTEM = {"greenhouse": 1, "lever": 4, "ashby": 1, "smartrecruiters": 1,
-                      "workable": 1, "recruitee": 1, "teamtailor": 1}
+                      "workable": 1, "recruitee": 1, "teamtailor": 1, "workday": 1}
+# A Workday address has a site name in it ("external_career_site_barclays") that
+# can't be guessed, so Workday boards come only from Common Crawl (crawl_boards.py).
+NOT_GUESSABLE = {"workday"}
 TRADING_AS = re.compile(r"\s+(?:t/a|trading as)\s+", re.IGNORECASE)
 # Recruitee and Teamtailor put the board name in the web address (name.recruitee.com),
 # and one part of an address can be at most 63 characters.
 MAX_BOARD_NAME_LENGTH = 63
 
 _cache_lock = threading.Lock()
+SAVE_EVERY = 50  # answers per system between cache saves (and progress lines)
+BLOCKED = object()  # the system told us to come back in hours, not seconds
 GAVE_UP = object()  # probe()'s answer when every attempt failed: unlike None, not cached
 
 
@@ -124,29 +130,55 @@ def board_text(ats: str, data) -> str:
 def probe(session, limiter, ats: str, token: str):
     """Ask one system for one board.
 
-    Returns the board, None for no board (HTTP 404 or similar), or GAVE_UP when
-    every attempt was refused or failed. GAVE_UP isn't saved in the cache: the
-    board may well exist, so the next run asks again.
+    Returns {"uk_jobs": how many, "uk_titles": their titles, "text": where to look
+    for the company's name}, None for no board (HTTP 404 or similar), or GAVE_UP
+    when every attempt was refused or failed. GAVE_UP isn't saved in the cache:
+    the board may well exist, so the next run asks again.
     """
     for attempt in range(3):
         limiter.wait()
         try:
-            response = session.get(URLS[ats].format(token=token), params=PARAMS[ats], timeout=30)
+            if ats == "workday":
+                response = session.post(workday_url(token) + "/jobs", timeout=30,
+                                        json={"limit": 20, "offset": 0, "searchText": "", "appliedFacets": {}})
+            else:
+                response = session.get(URLS[ats].format(token=token), params=PARAMS[ats], timeout=30)
         except requests.RequestException:
             time.sleep(5)
             continue
+        # Workable once blocked us for 16 hours (Retry-After: 58690) after a long
+        # run; retrying every name for hours just got refused. Stop this system.
+        if response.status_code == 429 and float(response.headers.get("Retry-After") or 0) > 300:
+            return BLOCKED
         if response.status_code == 429 or response.status_code >= 500:
             time.sleep(10 * (attempt + 1))  # slow down and retry
             continue
         if response.status_code != 200:
             return None
         try:
+            if ats == "workday":
+                return probe_workday(session, limiter, token, response.json())
             data = read_response(ats, response)
             # Only recent jobs count, so abandoned boards aren't "found".
-            return {"data": data, "uk_jobs": recent_only(parse_board(ats, token, "", data))}
+            uk_jobs = recent_only(parse_board(ats, token, "", data))
+            return {"uk_jobs": len(uk_jobs), "uk_titles": [j.title for j in uk_jobs],
+                    "text": board_text(ats, data)}
         except (ValueError, KeyError, TypeError, AttributeError, ElementTree.ParseError):
             return None  # not the JSON (or RSS) we expect
     return GAVE_UP
+
+
+def probe_workday(session, limiter, token: str, data: dict) -> dict:
+    """A Workday site's UK job count, from its location filters (one request
+    instead of reading up to 1,000 jobs), and one job's description: the job
+    list never names the company, but its adverts do."""
+    text = ""
+    if data["jobPostings"]:
+        limiter.wait()
+        detail = session.get(workday_url(token) + data["jobPostings"][0]["externalPath"], timeout=30)
+        if detail.status_code == 200:
+            text = detail.json()["jobPostingInfo"].get("jobDescription", "")
+    return {"uk_jobs": workday_uk_job_count(data), "uk_titles": [], "text": text}
 
 
 def guessed_tokens(register_name: str, first_words: Counter) -> list[str]:
@@ -159,28 +191,35 @@ def probe_system(ats: str, boards: list[tuple[str, str]], cache: dict, keywords:
     """Probe (board name, register name) pairs on one system. Runs in its own thread."""
     session = requests.Session()
     limiter = RateLimiter(min_interval_seconds=SLOWER_SYSTEMS.get(ats, REQUEST_INTERVAL_SECONDS))
-    gave_up = 0
+    gave_up = answered = 0
     for i, (token, register_name) in enumerate(boards, 1):
         key = f"{ats}:{token}"
         if key in cache:
             continue
         found = probe(session, limiter, ats, token)
+        if found is BLOCKED:
+            print(f"  {ats}: blocked us for hours (HTTP 429); stopped at {i}/{len(boards)}. Try again tomorrow.")
+            break
         if found is GAVE_UP:
             gave_up += 1
+            if gave_up % SAVE_EVERY == 0:
+                print(f"  {ats}: {i}/{len(boards)} board names ({gave_up} refused so far)")
             continue
         result = None
         if found is not None:
-            uk_jobs = found["uk_jobs"]
             result = {
-                "uk_jobs": len(uk_jobs),
-                "entry_level": [j.title for j in uk_jobs if is_entry_level(j.title, keywords)],
-                "same_company": is_same_company(token, name_variants(register_name),
-                                                board_text(ats, found["data"])),
+                "uk_jobs": found["uk_jobs"],
+                "entry_level": [title for title in found["uk_titles"] if is_entry_level(title, keywords)],
+                "same_company": is_same_company(token, name_variants(register_name), found["text"]),
             }
         with _cache_lock:
             cache[key] = result
-        if i % 500 == 0:
-            print(f"  {ats}: {i}/{len(boards)} board names")
+        answered += 1
+        # Counted by answers, not position in the list: a save point that fell on a
+        # refused or already-cached name was skipped, and a slow Workable run once
+        # went 8 hours without saving or printing anything.
+        if answered % SAVE_EVERY == 0:
+            print(f"  {ats}: {i}/{len(boards)} board names ({gave_up} refused so far)")
             save_cache(cache)
     if gave_up:
         print(f"  {ats}: {gave_up} names not answered (too many requests?); run again to retry them")
@@ -241,7 +280,8 @@ def main() -> None:
     for company in companies:
         for token in guessed_tokens(company["register_name"], first_words):
             for ats in systems:
-                to_probe[ats].setdefault(token, company["register_name"])
+                if ats not in NOT_GUESSABLE:
+                    to_probe[ats].setdefault(token, company["register_name"])
     for board in crawled:
         if board["ats"] in to_probe:
             to_probe[board["ats"]].setdefault(board["token"], board["register_name"])
@@ -281,8 +321,11 @@ def main() -> None:
                 add(company["register_name"], max(good, key=lambda a: cache[f"{a}:{token}"]["uk_jobs"]), token)
                 break
     for board in crawled:
-        if board["register_name"] not in done_companies and is_good(cache, board["ats"], board["token"], wrong):
-            add(board["register_name"], board["ats"], board["token"])
+        # Big Workday employers can have several sites (AstraZeneca: "careers" and
+        # "emerging-talent"); we keep them all. Other systems: one board per company.
+        if board["ats"] == "workday" or board["register_name"] not in done_companies:
+            if is_good(cache, board["ats"], board["token"], wrong):
+                add(board["register_name"], board["ats"], board["token"])
 
     rejected = sum(1 for result in cache.values()
                    if result and result["uk_jobs"] > 0 and not result["same_company"])

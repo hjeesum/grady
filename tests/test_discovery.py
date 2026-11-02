@@ -86,6 +86,9 @@ def test_every_board_system_can_be_found_in_common_crawl():
         ("recruitee", "https://bunq.recruitee.com/o/graduate-data-scientist", "bunq"),
         ("teamtailor", "http://node4.teamtailor.com/jobs", "node4"),
         ("lever", "https://jobs.lever.co/", None),
+        ("workday", "https://barclays.wd3.myworkdayjobs.com/en-GB/External_Career_Site_Barclays/job/x",
+         "barclays.wd3/external_career_site_barclays"),
+        ("workday", "https://barclays.wd3.myworkdayjobs.com/robots.txt", None),  # Workday's own page
     ],
 )
 def test_board_token(ats, url, token):
@@ -107,6 +110,12 @@ def test_match_register_needs_more_than_a_first_word():
     # "UK" says nothing about the company, "Inns" does: Crusoe Inns is a pub
     # company, and the "crusoe" board belongs to a US cloud firm.
     assert found == [("Airwallex (UK) Limited", "ashby", "airwallex")]
+
+
+def test_match_register_uses_the_company_part_of_a_workday_address():
+    found, _ = match_register({"workday": {"astrazeneca.wd3/careers"}},
+                              {"astrazeneca uk": "AstraZeneca UK Limited"})
+    assert found == [("AstraZeneca UK Limited", "workday", "astrazeneca.wd3/careers")]
 
 
 def test_is_good():

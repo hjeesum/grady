@@ -52,6 +52,11 @@ PATTERNS = {
     "workable": (["apply.workable.com/*"], r"apply\.workable\.com/([a-z0-9_-]+)"),
     "recruitee": (["*.recruitee.com"], r"//([a-z0-9-]+)\.recruitee\.com"),
     "teamtailor": (["*.teamtailor.com"], r"//([a-z0-9-]+)\.teamtailor\.com"),
+    # Two parts: host and site ("barclays.wd3" and "external_career_site_barclays"),
+    # skipping a language part ("/en-GB/") and Workday's own pages.
+    "workday": (["*.myworkdayjobs.com"],
+                r"//([a-z0-9-]+\.wd\d+)\.myworkdayjobs\.com/(?:[a-z]{2}-[a-z]{2}/)?"
+                r"(?!(?:wday|job|robots|refreshfacet|private)\b)([a-z0-9_-]+)"),
 }
 
 # A board named after only the first word of a sponsor ("airwallex" for
@@ -70,7 +75,12 @@ _limiter = RateLimiter(min_interval_seconds=1)
 def board_token(ats: str, url: str) -> str | None:
     """The board name in a saved address, e.g. "https://jobs.lever.co/palantir/6ed7" -> "palantir"."""
     match = re.search(PATTERNS[ats][1], url, re.IGNORECASE)
-    return match.group(1).lower() if match else None
+    return "/".join(match.groups()).lower() if match else None
+
+
+def company_part(ats: str, token: str) -> str:
+    """The part of a board name that is the company: Workday's "barclays.wd3/site" -> "barclays"."""
+    return token.split(".")[0] if ats == "workday" else token
 
 
 def ask_index(session, crawl: str, params: dict) -> str | None:
@@ -82,7 +92,8 @@ def ask_index(session, crawl: str, params: dict) -> str | None:
                                    params=params, timeout=120)
             if response.status_code == 200:
                 return response.text
-            if response.status_code == 404:  # "no captures": nothing saved for this address
+            # 404: nothing saved for this address. 400: "Page 3 invalid: Last Page is 2".
+            if response.status_code in (400, 404):
                 return ""
         except requests.RequestException:
             pass
@@ -93,15 +104,19 @@ def ask_index(session, crawl: str, params: dict) -> str | None:
 def tokens_in_crawl(session, crawl: str, ats: str, pattern: str) -> list[str] | None:
     """Every board name one crawl saved for one address pattern. None if a page failed."""
     info = ask_index(session, crawl, {"url": pattern, "output": "json", "showNumPages": "true"})
-    if info is None:
-        return None
-    pages = json.loads(info)["pages"] if info else 0
+    # Counting the pages times out for big systems (Workday: the server gives up
+    # after 10 seconds). Then read pages until one comes back empty instead.
+    pages = None if info is None else json.loads(info)["pages"] if info else 0
     tokens = set()
-    for page in range(pages):
+    page = 0
+    while pages is None or page < pages:
         urls = page_urls(session, crawl, {"url": pattern, "output": "json", "fl": "url", "page": page})
         if urls is None:
             return None  # not cached, so the next run asks again
+        if not urls:
+            break  # past the last page
         tokens.update(t for t in (board_token(ats, url) for url in urls) if t)
+        page += 1
     return sorted(tokens)
 
 
@@ -136,10 +151,11 @@ def match_register(tokens: dict[str, set[str]], register: dict[str, str]) -> tup
     found, ambiguous = [], 0
     for ats, names in tokens.items():
         for token in sorted(names):
-            if len(owners.get(token, ())) > 1:
+            company = company_part(ats, token)
+            if len(owners.get(company, ())) > 1:
                 ambiguous += 1
-            elif token in owners:
-                found.append((next(iter(owners[token])), ats, token))
+            elif company in owners:
+                found.append((next(iter(owners[company])), ats, token))
     return found, ambiguous
 
 

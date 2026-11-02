@@ -41,6 +41,8 @@ def main() -> None:
         found = False
         for token in board_names(company):
             for ats in URLS:
+                if ats == "workday":
+                    continue  # its addresses can't be guessed; scripts/crawl_boards.py finds them
                 try:
                     uk_jobs = fetch_uk_jobs(ats, token, company)
                 except (ApiError, ValueError, KeyError, TypeError, ElementTree.ParseError):

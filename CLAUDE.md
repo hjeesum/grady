@@ -8,7 +8,9 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
 - Build in small steps. Stop after each step so they can test and commit (GitHub Desktop).
 - Explain every decision; they must be able to defend the code in interviews.
 - At the end of each step, list exactly which files to commit and a commit message.
-- Official APIs only, no scraping.
+- Official APIs, plus employers' own careers sites read politely (slowly, no logins,
+  as robots.txt allows; user chose this for Workday, Nov 2026). Never job sites like
+  LinkedIn, Indeed or Glassdoor.
 
 ## Plan (mark steps done as they land)
 1. [x] Setup: venv, requirements.txt, `.env` for secrets (gitignored, `.env.example` committed),
@@ -48,7 +50,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (165 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (184 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
@@ -92,8 +94,8 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
       it overnight; config.py loads it after config.yaml's hand list,
       hand list wins). Accept = UK jobs + company name in board text + first-word guesses
       only when the word is unique on the register. config `boards.wrong_boards` = hand-found
-      false matches. Daily fetch: boards.fetch_boards, one thread per system (~5.5 min,
-      737 boards, Nov 2026).
+      false matches. Daily fetch: boards.fetch_boards, one thread per system, Workday x8 (~12 min,
+      851 boards incl. 114 Workday, Nov 2026).
   (c) [done, Nov 2026] scripts/crawl_boards.py: Common Crawl index (3 newest monthly
       crawls, one query per system URL pattern, cache data/discovery/crawl_cache.json;
       server often 502/504 or cuts answers off -> retries) lists ~20,000 existing boards
@@ -103,13 +105,30 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
       Added 333 boards (697 discovered). 12 doubtful one-word clashes in wrong_boards:
       user rule = when unsure, leave out (non-sponsor shown as sponsor is worse).
       New ATS = add a PATTERNS entry too (test checks PATTERNS == URLS).
-      Workable candidates not probed yet (run `discover_boards workable` overnight).
+      Workable not probed yet: 6,297 names x 12 s = ~21 h, too long for one night;
+      next time probe only the 1,630 crawled Workable names (~5.5 h).
+  (d) [done, Nov 2026] Workday (branch `workday`): CXS JSON API, POST
+      {host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs; token = "host/site".
+      Not guessable (NOT_GUESSABLE): found only via Common Crawl (its count query
+      always 504s -> read pages until empty). Daily fetch searches WORKDAY_SEARCHES
+      (6 terms), looks up details only when the list location isn't clearly UK.
+      WORKDAY_THREADS = 8, each site its own 0.5 s limiter (1 thread took 54 min).
+      Discovery counts UK jobs from the location filters (one request) + 1 detail
+      request for company-name text. Wrong matches + internal-only sites in
+      wrong_boards; 5 renamed to the right register company in the hand list
+      (hand list wins by ats+token). Barclays/BlackRock hand-added (first word clashes).
+  Location bug found via Workday (Nov 2026): US towns named after UK ones
+  ("Manchester, CT", "US - Massachusetts - Cambridge") counted as UK; is_uk_location
+  now drops "Town, STATE" parts and needs a UK word when a US word appears.
+  Workable blocked the home IP for ~16 h (Retry-After 58690) after a long probe;
+  discover_boards now stops a system on a long Retry-After and saves every 50 answers.
+  fetch_boards: one board's KeyError/ValueError/TypeError = that board's error only.
   Tried and rejected (Nov 2026): website discovery (guess domain, prove it by the company
   number shown on the site, follow Careers link): 10/50 sites, 0 new boards. Wikidata has
   websites for only 65/3,240. Never scrape Google for websites.
   Later options discussed: job-alert emails (LinkedIn etc. without scraping; plan = IMAP
   with the existing Gmail app password + a Gmail label, not the Gmail API, whose personal
-  OAuth tokens can expire weekly), Workday JSON (light scraping of employers' own sites).
+  OAuth tokens can expire weekly).
   Never scrape LinkedIn/Indeed: no official LinkedIn search API exists, paid "LinkedIn
   APIs" are scrapers, and the user's own account could be banned.
 - emailed_at still tracks only my_profile's email; friends need a per-recipient table.
