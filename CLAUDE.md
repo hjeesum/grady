@@ -48,7 +48,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (153 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (165 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
@@ -88,11 +88,25 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
       Finds 27 of the 39 hand-picked; misses fintech (SIC 64/66), R&D labs (72), retail.
   (b) [done] scripts/discover_boards.py probes all of them (threads per system, Lever x4
       because it's slow; cache data/discovery/probe_cache.json) -> boards_discovered.yaml
-      (GENERATED, committed, 364 boards on 6 systems; Workable not probed yet, user to run
+      (GENERATED, committed, 364 boards on 6 systems before (c); Workable not probed yet, user to run
       it overnight; config.py loads it after config.yaml's hand list,
       hand list wins). Accept = UK jobs + company name in board text + first-word guesses
       only when the word is unique on the register. config `boards.wrong_boards` = hand-found
-      false matches. Daily fetch: boards.fetch_boards, one thread per system (~5 min).
+      false matches. Daily fetch: boards.fetch_boards, one thread per system (~5.5 min,
+      737 boards, Nov 2026).
+  (c) [done, Nov 2026] scripts/crawl_boards.py: Common Crawl index (3 newest monthly
+      crawls, one query per system URL pattern, cache data/discovery/crawl_cache.json;
+      server often 502/504 or cuts answers off -> retries) lists ~20,000 existing boards
+      -> matched against the WHOLE register (not just tech SICs) -> crawl_candidates.csv
+      -> discover_boards checks them too (2nd input). First-word matches only when the
+      rest of the name is generic (crawl_boards.GENERIC_WORDS; "crusoe" = Crusoe Inns).
+      Added 333 boards (697 discovered). 12 doubtful one-word clashes in wrong_boards:
+      user rule = when unsure, leave out (non-sponsor shown as sponsor is worse).
+      New ATS = add a PATTERNS entry too (test checks PATTERNS == URLS).
+      Workable candidates not probed yet (run `discover_boards workable` overnight).
+  Tried and rejected (Nov 2026): website discovery (guess domain, prove it by the company
+  number shown on the site, follow Careers link): 10/50 sites, 0 new boards. Wikidata has
+  websites for only 65/3,240. Never scrape Google for websites.
   Later options discussed: job-alert emails (LinkedIn etc. without scraping; plan = IMAP
   with the existing Gmail app password + a Gmail label, not the Gmail API, whose personal
   OAuth tokens can expire weekly), Workday JSON (light scraping of employers' own sites).

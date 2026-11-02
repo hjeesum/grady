@@ -14,7 +14,7 @@ The UK government publishes the [Register of Licensed Sponsors](https://www.gov.
 
 Every morning, a GitHub Actions workflow:
 
-1. **Searches** the Adzuna and Reed job APIs across the whole UK, and the job boards of 404 tech companies on the sponsor register.
+1. **Searches** the Adzuna and Reed job APIs across the whole UK, and the job boards of 737 companies on the sponsor register.
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
@@ -104,6 +104,12 @@ Adding systems brought new traps:
 
 Guessing a board from a company's first word was the weak point: `Quantum Metric` found the board of a price-comparison company called Quantum, and `Cursor Controls` (UK hardware) found Cursor (AI). The fix is the sponsor matcher's rule again: guess the first word only if **exactly one** register company starts with it. That removed every false match I found, at the cost of some real ones (Stripe, Snowflake). Four remaining one-word clashes, such as `Prophet plc` vs Prophet the consultancy, are listed in `wrong_boards` in the config after checking by hand.
 
+**Searching in reverse with Common Crawl.** Guessing names only covers the 3,240 "tech" companies, and Companies House files banks, defence firms and fintechs elsewhere (Affirm is finance, Anduril is defence), even though they hire developers. So [`scripts/crawl_boards.py`](scripts/crawl_boards.py) works the other way round. [Common Crawl](https://commoncrawl.org), a free public copy of the web, has an index of every address it saved. One query per system ("every address starting with `jobs.lever.co/`") lists the boards that exist, about 20,000 across three monthly crawls. Their names are then matched against the **whole** register (128,000 names), and `discover_boards.py` checks each match the same way as before. This added 333 boards, including Airbnb, Duolingo, Okta, Scale AI and Point72.
+
+Matching against 40 times more names brought back the first-word problem: `crusoe` matched Crusoe Inns, a pub company, to the board of a US cloud firm. Here a first-word match now counts only when the rest of the name is generic ("Airwallex (UK) Limited" yes, "Crusoe Inns" no). I checked the one-word names that were left by reading each board's own text, and listed 12 doubtful ones in `wrong_boards`. A non-sponsor job labelled "sponsor" costs a visa applicant more than a missed one.
+
+Before this I tried a different idea and measured it first: find each company's website, follow its "Careers" link, and see which system it uses. UK companies must show their company number on their website, which proved the website was theirs. On 50 random tech sponsors it confirmed only 10 websites, and found **no** board that name-guessing hadn't already found, so I didn't build it.
+
 ### 6. Running unattended
 
 - **No server, and no database between runs.** Each GitHub Actions run starts on a fresh machine, so the SQLite file lives on a separate one-commit `data` branch: restored at the start of a run, saved at the end.
@@ -112,7 +118,7 @@ Guessing a board from a company's first word was the weak point: `Quantum Metric
 
 ## Testing
 
-153 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+165 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 
