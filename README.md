@@ -116,7 +116,7 @@ Before this I tried a different idea and measured it first: find each company's 
 
 ### 6. Running unattended
 
-- **No server, and no database between runs.** Each GitHub Actions run starts on a fresh machine, so the SQLite file lives on a separate one-commit `data` branch: restored at the start of a run, saved at the end.
+- **No server, and no database between runs.** Each GitHub Actions run starts on a fresh machine, so the SQLite file lives in a separate **private** repository: restored at the start of a run, saved at the end. This repository is public, and the database holds Reed jobs, which Reed allows only for private use. If the database can't be loaded, the run stops instead of starting empty, which would email every old job again.
 - **Failures are expected.** Adzuna returned HTTP 503 during development and crashed the whole run, so one failing source is now skipped. A source that fails for *every* search term (like a wrong API key) still finishes the run but marks it failed, so GitHub alerts me.
 - **Jobs are marked as emailed only after the email is sent.** If sending fails, the same jobs go out the next day instead of being lost.
 - **GitHub's schedule runs late.** The workflow is scheduled for 06:37, but GitHub starts scheduled runs when it has spare machines: in the first days they started 7 and 10 hours late. So a free cron service ([cron-job.org](https://cron-job.org)) presses the workflow's "Run workflow" button through GitHub's API at 06:37 UK time, and the email arrives before 7am. Its GitHub key can only start workflows in this one repository, so a leak would let someone start a run and nothing else. GitHub's own schedule stays as a backup, and a `concurrency` group stops two runs from emailing the same jobs.
@@ -124,7 +124,7 @@ Before this I tried a different idea and measured it first: find each company's 
 
 ## Testing
 
-184 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+187 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 

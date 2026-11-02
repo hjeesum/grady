@@ -49,12 +49,15 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        POSTs workflow_dispatch at 06:37 Europe/London (fine-grained token: this repo, Actions
        read/write, 1-year expiry; renew Nov 2027). GitHub cron kept as backup for now;
        concurrency group stops double runs. jobs.db persists on a one-commit "data" branch
-       (restored at start, force-pushed at end). Repo hjeesum/grady is private.
+       of the PRIVATE repo hjeesum/grady-data (secret DATA_REPO_TOKEN: that repo only,
+       Contents read/write), because grady goes public and the db holds Reed jobs
+       (restored at start, force-pushed at end; a failed restore stops the run so old jobs
+       are never re-emailed). Repo hjeesum/grady: going public (Nov 2026).
        Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO,
        SUBSCRIBERS (optional, friends).
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (184 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (187 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.

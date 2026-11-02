@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write  # needed to save the database to the "data" branch
+  contents: read  # the database is saved to grady-data with its own token
 
 jobs:
   digest:
@@ -34,16 +34,31 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Each run starts on a fresh machine, so the database lives on a separate
-      # "data" branch. The very first run won't find it and starts a new one.
+      # Each run starts on a fresh machine, so the database is kept in a separate
+      # PRIVATE repository (grady-data): this repository is public, and the
+      # database holds Reed jobs, which may only be used privately.
+      # DATA_REPO_TOKEN can read and write grady-data and nothing else.
       - name: Restore the job database
+        env:
+          DATA_URL: https://x-access-token:${{ secrets.DATA_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/grady-data.git
         run: |
           mkdir -p data
-          if git fetch --depth=1 origin data; then
+          # ls-remote fails on a wrong token or network error: stop, rather than
+          # start with an empty database and email every old job again.
+          if ! branches=$(git ls-remote --heads "$DATA_URL" data); then
+            echo "Can't reach grady-data: check the DATA_REPO_TOKEN secret."
+            exit 1
+          fi
+          if [ -n "$branches" ]; then
+            git fetch -q --depth=1 "$DATA_URL" data
             git show FETCH_HEAD:jobs.db > data/jobs.db
-            echo "Restored jobs.db from the data branch."
+            echo "Restored jobs.db from grady-data."
+          # One-time move: the database used to live on this repository's "data" branch.
+          elif git fetch -q --depth=1 origin data; then
+            git show FETCH_HEAD:jobs.db > data/jobs.db
+            echo "Moved jobs.db from this repository's old data branch."
           else
-            echo "No data branch yet: starting with an empty database."
+            echo "No database yet: starting with an empty one."
           fi
 
       - name: Fetch jobs and send the digest
@@ -68,6 +83,8 @@ jobs:
       # made inside a transaction, so the file is never half-written.
       - name: Save the job database
         if: always()
+        env:
+          DATA_URL: https://x-access-token:${{ secrets.DATA_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/grady-data.git
         run: |
           if [ ! -f data/jobs.db ]; then
             echo "No database to save."
@@ -83,6 +100,5 @@ jobs:
           git -c user.name="github-actions[bot]" \
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
               commit -q -m "Job database after run ${{ github.run_number }}"
-          git push -q --force \
-            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
-          echo "Saved jobs.db to the data branch."
+          git push -q --force "$DATA_URL" data
+          echo "Saved jobs.db to grady-data."
