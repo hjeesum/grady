@@ -57,12 +57,16 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        SUBSCRIBERS (optional, friends).
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (187 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (192 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
 Roadmap: (1) profiles [done] -> measure each profile's search terms (needs a fresh
-Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pages
+Adzuna day: ~250 requests/day limit) -> (2) [done Nov 2026] public job page + RSS on GitHub Pages (grady/site.py, templates
+  site_index.html/site_feed.xml -> data/site/, daily.yml "publish" job; https://hjeesum.github.io/grady/).
+  PUBLIC_SOURCES allow-list = adzuna + boards (Reed terms: private use only; NHS unchecked).
+  Adzuna terms: label each advert "Adzuna" >= 116x23 px linked to adzuna.co.uk. Sponsor
+  jobs only, first found in last 14 days, my_profile filters
 -> (3) friends' emails via Google Form + private Sheet, per-recipient sent tracking
 -> (4) self-hosting guide in README. Check Adzuna/Reed terms before publishing jobs publicly.
 - config.yaml `profiles:` ONLY tech now. User chose (31 Oct 2026) to focus on tech and

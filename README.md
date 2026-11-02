@@ -4,6 +4,8 @@
 
 **A daily email of new graduate and junior tech jobs in the UK, only from employers licensed to sponsor visas.**
 
+**Live job page: [hjeesum.github.io/grady](https://hjeesum.github.io/grady/)** (updated every morning, with an [RSS feed](https://hjeesum.github.io/grady/feed.xml)).
+
 ## The problem
 
 As an international computer science graduate job hunting in the UK, I need an employer that can sponsor a Skilled Worker visa. Job sites don't let you filter for that. I kept finding a promising role, researching the company, sometimes starting an application, and only then discovering the employer couldn't sponsor me.
@@ -120,11 +122,12 @@ Before this I tried a different idea and measured it first: find each company's 
 - **Failures are expected.** Adzuna returned HTTP 503 during development and crashed the whole run, so one failing source is now skipped. A source that fails for *every* search term (like a wrong API key) still finishes the run but marks it failed, so GitHub alerts me.
 - **Jobs are marked as emailed only after the email is sent.** If sending fails, the same jobs go out the next day instead of being lost.
 - **GitHub's schedule runs late.** The workflow is scheduled for 06:37, but GitHub starts scheduled runs when it has spare machines: in the first days they started 7 and 10 hours late. So a free cron service ([cron-job.org](https://cron-job.org)) presses the workflow's "Run workflow" button through GitHub's API at 06:37 UK time, and the email arrives before 7am. Its GitHub key can only start workflows in this one repository, so a leak would let someone start a run and nothing else. GitHub's own schedule stays as a backup, and a `concurrency` group stops two runs from emailing the same jobs.
+- **A public page, but only what's allowed.** The run also builds a web page and RSS feed of the last 14 days' sponsor jobs, published with GitHub Pages. Before publishing I read each source's terms: Reed allows its jobs only for private use, so they stay in the email; Adzuna allows display if every job carries an "Adzuna" link. The page uses an allow-list of sources, so a source added later stays off it until its terms are checked.
 - **Friends get the same email.** Their addresses live only in a GitHub Secret (`SUBSCRIBERS`), never in the code, and they're sent as a blind copy, so nobody sees anyone else's address.
 
 ## Testing
 
-187 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+192 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 

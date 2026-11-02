@@ -114,3 +114,27 @@ jobs:
           # As in the restore step: don't send this repository's own login.
           git -c "http.https://github.com/.extraheader=" push -q --force "$DATA_URL" data
           echo "Saved jobs.db to grady-data."
+
+      # The public job page (grady/site.py), built by the run above. Uploaded even
+      # if the run reported a failed source afterwards, as long as the page exists.
+      - name: Upload the public job page
+        if: always() && hashFiles('data/site/index.html') != ''
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: data/site
+
+  # A separate job, because only it gets the permissions to publish to GitHub
+  # Pages (https://hjeesum.github.io/grady/); the digest job never has them.
+  publish:
+    needs: digest
+    if: always() && needs.digest.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write     # to publish the page
+      id-token: write  # to prove to Pages that this workflow sent it
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
