@@ -131,7 +131,10 @@ Adzuna day: ~250 requests/day limit) -> (2) public job pages + RSS on GitHub Pag
   OAuth tokens can expire weekly).
   Never scrape LinkedIn/Indeed: no official LinkedIn search API exists, paid "LinkedIn
   APIs" are scrapers, and the user's own account could be banned.
-- emailed_at still tracks only my_profile's email; friends need a per-recipient table.
+- Friends (Nov 2026, user chose: friends send their address, user adds it): optional secret
+  SUBSCRIBERS (commas/new lines) -> same digest as Bcc (emailer.parse_subscribers).
+  Addresses only in GitHub Secrets / .env. Footer: "reply to stop". emailed_at is shared,
+  fine while everyone gets the one tech digest; per-recipient table only if profiles differ.
 
 ## Layout
 - `grady/` — Python package. Run with `python -m grady`.

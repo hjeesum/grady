@@ -41,6 +41,7 @@ def fake_smtp(monkeypatch):
         "SMTP_HOST": "smtp.example.com", "SMTP_PORT": "587",
         "SMTP_USER": "me@example.com", "SMTP_PASSWORD": "secret",
         "EMAIL_TO": "me@example.com",
+        "SUBSCRIBERS": "",  # set, so a real one in .env isn't loaded
     }.items():
         monkeypatch.setenv(name, value)
     return FakeSMTP
@@ -67,3 +68,23 @@ def test_wrong_password_gives_a_helpful_error(fake_smtp, monkeypatch):
     monkeypatch.setattr(FakeSMTP, "login", reject)
     with pytest.raises(RuntimeError, match="App Password"):
         emailer.send_email("s", "<p>h</p>", "t")
+
+
+def test_friends_get_a_blind_copy(fake_smtp, monkeypatch):
+    monkeypatch.setenv("SUBSCRIBERS", "ana@example.com, ben@example.com")
+    emailer.send_email("s", "<p>h</p>", "t")
+    message = fake_smtp.instances[0].sent
+    assert message["To"] == "me@example.com"  # friends never appear here
+    assert message["Bcc"] == "ana@example.com, ben@example.com"
+
+
+def test_no_subscribers_means_no_blind_copy(fake_smtp):
+    emailer.send_email("s", "<p>h</p>", "t")
+    assert fake_smtp.instances[0].sent["Bcc"] is None
+
+
+def test_parse_subscribers():
+    value = " Ana@Example.com,ben@example.com\n ana@example.com ; me@example.com \n"
+    # Any separator and case; duplicates and the owner's own address dropped.
+    assert emailer.parse_subscribers(value, "ME@example.com") == ["ana@example.com", "ben@example.com"]
+    assert emailer.parse_subscribers("", "me@example.com") == []

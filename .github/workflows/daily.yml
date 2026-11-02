@@ -57,6 +57,8 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          # Optional: friends' addresses (commas or new lines). They get a blind copy.
+          SUBSCRIBERS: ${{ secrets.SUBSCRIBERS }}
           # Not secret, so they're written here instead.
           SMTP_HOST: smtp.gmail.com
           SMTP_PORT: "587"

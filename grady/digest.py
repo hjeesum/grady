@@ -144,4 +144,5 @@ def render_text(digest: Digest, today: date) -> str:
         if section.more:
             lines += [f"...and {section.more} more.", ""]
     lines.append("Always confirm sponsorship with the employer before applying.")
+    lines.append("To stop these emails, reply and say so.")
     return "\n".join(lines)
