@@ -119,6 +119,8 @@ Before this I tried a different idea and measured it first: find each company's 
 - **No server, and no database between runs.** Each GitHub Actions run starts on a fresh machine, so the SQLite file lives on a separate one-commit `data` branch: restored at the start of a run, saved at the end.
 - **Failures are expected.** Adzuna returned HTTP 503 during development and crashed the whole run, so one failing source is now skipped. A source that fails for *every* search term (like a wrong API key) still finishes the run but marks it failed, so GitHub alerts me.
 - **Jobs are marked as emailed only after the email is sent.** If sending fails, the same jobs go out the next day instead of being lost.
+- **GitHub's schedule runs late.** The workflow is scheduled for 06:37, but GitHub starts scheduled runs when it has spare machines: in the first days they started 7 and 10 hours late. So a free cron service ([cron-job.org](https://cron-job.org)) presses the workflow's "Run workflow" button through GitHub's API at 06:37 UK time, and the email arrives before 7am. Its GitHub key can only start workflows in this one repository, so a leak would let someone start a run and nothing else. GitHub's own schedule stays as a backup, and a `concurrency` group stops two runs from emailing the same jobs.
+- **Friends get the same email.** Their addresses live only in a GitHub Secret (`SUBSCRIBERS`), never in the code, and they're sent as a blind copy, so nobody sees anyone else's address.
 
 ## Testing
 
@@ -144,7 +146,7 @@ python -m grady --dry-run          # fetch, and build a preview per profile in d
 
 Search terms, preferred cities, salary and keyword filters live in [`config.yaml`](config.yaml), as **profiles**. There is one for now, tech; healthcare, engineering, finance, law and graduate-scheme profiles were tried and removed to focus on tech. Every profile's search terms are fetched once per run, and each profile then picks its own jobs with its own filters, so API usage grows with the number of search terms, not the number of profiles. `my_profile` chooses which digest is emailed.
 
-To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`, `SMTP_USER`, `SMTP_PASSWORD` (a Gmail App Password) and `EMAIL_TO` as repository secrets.
+To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`, `SMTP_USER`, `SMTP_PASSWORD` (a Gmail App Password) and `EMAIL_TO` as repository secrets, plus `SUBSCRIBERS` (optional: friends' addresses, separated by commas) to send them a copy.
 
 ## Limitations
 

@@ -45,9 +45,13 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        salary cap (60k) was tested and rejected: it dropped real junior jobs / top grad pay.
    Original plan: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
 8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (06:37 UTC, off the hour +
-       manual "Run workflow" button). jobs.db persists on a one-commit "data" branch
+       manual "Run workflow" button). GitHub cron starts 7-10 h late, so cron-job.org
+       POSTs workflow_dispatch at 06:37 Europe/London (fine-grained token: this repo, Actions
+       read/write, 1-year expiry; renew Nov 2027). GitHub cron kept as backup for now;
+       concurrency group stops double runs. jobs.db persists on a one-commit "data" branch
        (restored at start, force-pushed at end). Repo hjeesum/grady is private.
-       Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO.
+       Secrets: ADZUNA_APP_ID, ADZUNA_APP_KEY, REED_API_KEY, SMTP_USER, SMTP_PASSWORD, EMAIL_TO,
+       SUBSCRIBERS (optional, friends).
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
        Keep README numbers in sync if matching/tests change (184 tests, 17/18 correct, 0 wrong).
