@@ -46,7 +46,11 @@ jobs:
           mkdir -p data
           # ls-remote fails on a wrong token or network error: stop, rather than
           # start with an empty database and email every old job again.
-          if ! branches=$(git ls-remote --heads "$DATA_URL" data); then
+          # actions/checkout saved this repository's own login as a header that
+          # git sends to all of github.com, and it wins over the token in DATA_URL
+          # ("Repository not found"). An empty value switches it off for one command.
+          own_login_off="http.https://github.com/.extraheader="
+          if ! branches=$(git -c "$own_login_off" ls-remote --heads "$DATA_URL" data); then
             echo "Can't reach grady-data: check the DATA_REPO_TOKEN secret."
             # Say why, without printing the token: whose token it is (401 = not
             # a valid token) and whether it can see the repository (404 = can't).
@@ -57,7 +61,7 @@ jobs:
             exit 1
           fi
           if [ -n "$branches" ]; then
-            git fetch -q --depth=1 "$DATA_URL" data
+            git -c "$own_login_off" fetch -q --depth=1 "$DATA_URL" data
             git show FETCH_HEAD:jobs.db > data/jobs.db
             echo "Restored jobs.db from grady-data."
           # One-time move: the database used to live on this repository's "data" branch.
@@ -107,5 +111,6 @@ jobs:
           git -c user.name="github-actions[bot]" \
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
               commit -q -m "Job database after run ${{ github.run_number }}"
-          git push -q --force "$DATA_URL" data
+          # As in the restore step: don't send this repository's own login.
+          git -c "http.https://github.com/.extraheader=" push -q --force "$DATA_URL" data
           echo "Saved jobs.db to grady-data."
