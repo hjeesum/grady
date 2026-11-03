@@ -35,14 +35,16 @@ def public_jobs(stored_jobs: list[StoredJob], profile: Profile) -> list[StoredJo
 
 
 def build_site(stored_jobs: list[StoredJob], profile: Profile, now: datetime | None = None,
-               out_dir: Path = SITE_DIR, signup_url: str | None = None) -> int:
+               out_dir: Path = SITE_DIR, signup_url: str | None = None,
+               feedback_url: str | None = None) -> int:
     """Write index.html and feed.xml to out_dir. Returns how many jobs are on the page."""
     now = now or datetime.now(timezone.utc)
     jobs = public_jobs(stored_jobs, profile)
     # autoescape: job text from APIs can never inject HTML (or break the XML feed).
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     context = {"jobs": jobs, "now": now, "days": DAYS_SHOWN, "profile_name": profile.name,
-               "site_url": SITE_URL, "signup_url": signup_url, "format_salary": format_salary}
+               "site_url": SITE_URL, "signup_url": signup_url, "feedback_url": feedback_url,
+               "format_salary": format_salary}
     out_dir.mkdir(parents=True, exist_ok=True)
     for name in ("index.html", "feed.xml"):
         (out_dir / name).write_text(env.get_template(f"site_{name}").render(context), encoding="utf-8")

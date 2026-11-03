@@ -136,3 +136,13 @@ def test_html_escapes_job_data(settings, stored):
     html = render_html(digest, date(2026, 10, 30))
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_feedback_link_in_both_email_versions(settings, stored):
+    digest = digest_of([stored(1)], settings)
+    today = date(2026, 10, 30)
+    assert "Send feedback" not in render_html(digest, today)
+    assert "Send feedback" not in render_text(digest, today)
+    url = "https://forms.gle/xyz"
+    assert f'href="{url}"' in render_html(digest, today, url)
+    assert url in render_text(digest, today, url)

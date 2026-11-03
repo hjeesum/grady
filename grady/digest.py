@@ -108,7 +108,7 @@ def subject(digest: Digest, today: date) -> str:
             f" – {today:%d %b %Y}")
 
 
-def render_html(digest: Digest, today: date) -> str:
+def render_html(digest: Digest, today: date, feedback_url: str | None = None) -> str:
     # autoescape=True turns characters like < and & in job data into safe HTML,
     # so text from an API can never break or inject into the email.
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
@@ -117,12 +117,13 @@ def render_html(digest: Digest, today: date) -> str:
         digest=digest,
         subject=subject(digest, today),
         today=today,
+        feedback_url=feedback_url,
         format_salary=format_salary,
         is_preferred=lambda job: is_preferred_city(job, digest.preferred_cities),
     )
 
 
-def render_text(digest: Digest, today: date) -> str:
+def render_text(digest: Digest, today: date, feedback_url: str | None = None) -> str:
     """Plain-text version of the email, for programs that don't show HTML."""
     lines = [subject(digest, today), ""]
     sections = [
@@ -145,4 +146,6 @@ def render_text(digest: Digest, today: date) -> str:
             lines += [f"...and {section.more} more.", ""]
     lines.append("Always confirm sponsorship with the employer before applying.")
     lines.append("To stop these emails, reply and say so.")
+    if feedback_url:
+        lines.append(f"Ideas or problems? Send feedback: {feedback_url}")
     return "\n".join(lines)

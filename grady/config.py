@@ -76,6 +76,7 @@ class Settings:
     known_agencies: list[str]
     boards: BoardSettings
     signup_url: str | None  # the public page's "get these by email" form; None = no form
+    feedback_url: str | None  # "send feedback" form in the email and on the page; None = no link
 
     def terms_for(self, source: str) -> list[str]:
         """The search terms to send to one source: every profile that uses it, each term once.
@@ -144,6 +145,7 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
         known_agencies=list(raw["agencies"]["known_names"]),
         boards=_load_boards(raw["boards"], path.parent / DISCOVERED_BOARDS_FILE),
         signup_url=(raw.get("site") or {}).get("signup_url") or None,
+        feedback_url=(raw.get("site") or {}).get("feedback_url") or None,
     )
 
 

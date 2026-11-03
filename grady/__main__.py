@@ -141,7 +141,8 @@ def main() -> None:
     digests = {}
     for profile in settings.profiles.values():
         digest = build_digest(stored_jobs, profile, settings.email)
-        (PREVIEWS_DIR / f"{profile.id}.html").write_text(render_html(digest, today), encoding="utf-8")
+        (PREVIEWS_DIR / f"{profile.id}.html").write_text(render_html(digest, today, settings.feedback_url),
+                                                         encoding="utf-8")
         print(f"  {profile.name:<17} {len(digest.sponsor.all_jobs):>3} sponsor jobs, "
               f"{len(digest.agency.all_jobs):>3} agency jobs")
         digests[profile.id] = digest
@@ -150,11 +151,11 @@ def main() -> None:
     # The public page shows the last few weeks, emailed or not, so it's built
     # from its own query. Published by the workflow with GitHub Pages.
     shown = build_site(store.sponsor_jobs_since(site_since()), settings.profiles[settings.my_profile],
-                       signup_url=settings.signup_url)
+                       signup_url=settings.signup_url, feedback_url=settings.feedback_url)
     print(f"Public page: {shown} jobs, saved in {SITE_DIR}")
 
     digest = digests[settings.my_profile]
-    html = render_html(digest, today)
+    html = render_html(digest, today, settings.feedback_url)
     print(f"\nYour email ({digest.profile_name}): left out by filters: {dict(digest.filtered_out)}")
     if args.dry_run:
         print("Dry run: email not sent.")
@@ -162,7 +163,7 @@ def main() -> None:
         # An empty email every day teaches you to ignore the emails.
         print("No new jobs: email not sent.")
     else:
-        send_email(subject(digest, today), html, render_text(digest, today))
+        send_email(subject(digest, today), html, render_text(digest, today, settings.feedback_url))
         # Only mark jobs once the email has definitely gone. If sending fails,
         # send_email raises an error, we never reach this line, and the same
         # jobs are offered again next run.

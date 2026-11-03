@@ -74,3 +74,10 @@ def test_signup_box_only_when_a_form_is_set(profile, stored, tmp_path):
     assert "Get them by email" not in (tmp_path / "index.html").read_text(encoding="utf-8")
     build_site([stored(1)], profile, NOW, tmp_path, signup_url="https://forms.gle/abc")
     assert 'href="https://forms.gle/abc"' in (tmp_path / "index.html").read_text(encoding="utf-8")
+
+
+def test_feedback_link_only_when_a_form_is_set(profile, stored, tmp_path):
+    build_site([stored(1)], profile, NOW, tmp_path)
+    assert "Send feedback" not in (tmp_path / "index.html").read_text(encoding="utf-8")
+    build_site([stored(1)], profile, NOW, tmp_path, feedback_url="https://forms.gle/xyz")
+    assert 'href="https://forms.gle/xyz"' in (tmp_path / "index.html").read_text(encoding="utf-8")
