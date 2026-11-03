@@ -5,6 +5,7 @@ import re
 import smtplib
 from email.message import EmailMessage
 
+import requests
 from dotenv import load_dotenv
 
 from grady.config import PROJECT_ROOT, get_secret
@@ -12,24 +13,55 @@ from grady.config import PROJECT_ROOT, get_secret
 TIMEOUT_SECONDS = 30
 
 
+# Loose on purpose: just enough to throw away anything that isn't an address
+# (e.g. a web page returned by mistake), which would make the whole send fail.
+EMAIL_ADDRESS = re.compile(r"[^@\s<>\"']+@[^@\s<>\"']+\.[a-z]{2,}")
+
+
 def parse_subscribers(value: str, owner: str) -> list[str]:
-    """Friends' addresses from the SUBSCRIBERS secret: separated by commas, spaces
-    or new lines, any case. Duplicates and the owner's own address are dropped."""
+    """Friends' addresses: separated by commas, spaces or new lines, any case.
+    Duplicates, the owner's own address and anything not shaped like an address
+    are dropped."""
     found = []
     for address in re.split(r"[\s,;]+", value.strip().lower()):
-        if address and address != owner.lower() and address not in found:
+        if EMAIL_ADDRESS.fullmatch(address) and address != owner.lower() and address not in found:
             found.append(address)
     return found
 
 
-def subscribers(owner: str) -> list[str]:
-    """Optional: no SUBSCRIBERS secret means the email goes to EMAIL_TO only.
+def signed_up(url: str) -> str:
+    """Addresses from the sign-up form, one per line (see scripts/signup_sheet.gs).
 
-    Friends' addresses live only in this secret (GitHub Secrets / .env), never in
-    the code or config.yaml, so the repository can be public without leaking them.
+    Returns "" if the list can't be read: a broken form must never stop the email
+    going to everyone else, so this only prints a warning.
+    """
+    try:
+        # Google answers with a redirect to the real content; requests follows it.
+        response = requests.get(url, timeout=TIMEOUT_SECONDS)
+        response.raise_for_status()
+    except requests.RequestException as error:
+        print(f"WARNING: couldn't read the sign-up list ({type(error).__name__}); sending without it.")
+        return ""
+    if response.text.startswith("ERROR") or "<html" in response.text[:500].lower():
+        # A wrong key, or a Google sign-in page if the web app isn't open to "Anyone".
+        print(f"WARNING: the sign-up list answered {response.text[:40]!r}; sending without it.")
+        return ""
+    return response.text
+
+
+def subscribers(owner: str) -> list[str]:
+    """Optional: with neither SUBSCRIBERS nor SIGNUP_LIST_URL, the email goes to EMAIL_TO only.
+
+    Friends' addresses live only in secrets (GitHub Secrets / .env) and the private
+    sign-up Sheet, never in the code or config.yaml, so the repository can be public
+    without leaking them. SIGNUP_LIST_URL includes the key, so it's a secret too.
     """
     load_dotenv(PROJECT_ROOT / ".env")
-    return parse_subscribers(os.environ.get("SUBSCRIBERS", ""), owner)
+    value = os.environ.get("SUBSCRIBERS", "")
+    url = os.environ.get("SIGNUP_LIST_URL", "")
+    if url:
+        value += "\n" + signed_up(url)
+    return parse_subscribers(value, owner)
 
 
 def send_email(subject: str, html: str, text: str) -> None:

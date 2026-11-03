@@ -123,11 +123,11 @@ Before this I tried a different idea and measured it first: find each company's 
 - **Jobs are marked as emailed only after the email is sent.** If sending fails, the same jobs go out the next day instead of being lost.
 - **GitHub's schedule runs late.** The workflow is scheduled for 06:37, but GitHub starts scheduled runs when it has spare machines: in the first days they started 7 and 10 hours late. So a free cron service ([cron-job.org](https://cron-job.org)) presses the workflow's "Run workflow" button through GitHub's API at 06:37 UK time, and the email arrives before 7am. Its GitHub key can only start workflows in this one repository, so a leak would let someone start a run and nothing else. GitHub's own schedule stays as a backup, and a `concurrency` group stops two runs from emailing the same jobs.
 - **A public page, but only what's allowed.** The run also builds a web page and RSS feed of the last 14 days' sponsor jobs, published with GitHub Pages. Before publishing I read each source's terms: Reed allows its jobs only for private use, so they stay in the email; Adzuna allows display if every job carries an "Adzuna" link. The page uses an allow-list of sources, so a source added later stays off it until its terms are checked.
-- **Friends get the same email.** They sign up with a Google Form linked from the page, whose answers only I can see. Their addresses live only in a GitHub Secret (`SUBSCRIBERS`), never in the code, and they're sent as a blind copy, so nobody sees anyone else's address.
+- **Friends get the same email.** They sign up with a Google Form linked from the page (signing in with Google, so nobody can sign up a stranger). The answers go to my private Google Sheet; a small Apps Script ([scripts/signup_sheet.gs](scripts/signup_sheet.gs)) hands the list only to a request carrying a secret key, and the daily run reads it, so new friends get the next email automatically. Addresses never appear in the code, and they're sent as a blind copy, so nobody sees anyone else's address.
 
 ## Testing
 
-193 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+198 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 
@@ -149,7 +149,7 @@ python -m grady --dry-run          # fetch, and build a preview per profile in d
 
 Search terms, preferred cities, salary and keyword filters live in [`config.yaml`](config.yaml), as **profiles**. There is one for now, tech; healthcare, engineering, finance, law and graduate-scheme profiles were tried and removed to focus on tech. Every profile's search terms are fetched once per run, and each profile then picks its own jobs with its own filters, so API usage grows with the number of search terms, not the number of profiles. `my_profile` chooses which digest is emailed.
 
-To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`, `SMTP_USER`, `SMTP_PASSWORD` (a Gmail App Password) and `EMAIL_TO` as repository secrets, plus `SUBSCRIBERS` (optional: friends' addresses, separated by commas) to send them a copy.
+To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`, `SMTP_USER`, `SMTP_PASSWORD` (a Gmail App Password) and `EMAIL_TO` as repository secrets, plus `SUBSCRIBERS` (optional: friends' addresses, separated by commas) and `SIGNUP_LIST_URL` (optional: the sign-up Sheet's web app address with `?key=`, see [scripts/signup_sheet.gs](scripts/signup_sheet.gs)) to send them a copy.
 
 ## Limitations
 

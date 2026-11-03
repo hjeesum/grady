@@ -85,6 +85,8 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           # Optional: friends' addresses (commas or new lines). They get a blind copy.
           SUBSCRIBERS: ${{ secrets.SUBSCRIBERS }}
+          # Optional: web address (with key) of the sign-up Sheet's list; see scripts/signup_sheet.gs.
+          SIGNUP_LIST_URL: ${{ secrets.SIGNUP_LIST_URL }}
           # Not secret, so they're written here instead.
           SMTP_HOST: smtp.gmail.com
           SMTP_PORT: "587"
