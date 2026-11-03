@@ -16,7 +16,7 @@ The UK government publishes the [Register of Licensed Sponsors](https://www.gov.
 
 Every morning, a GitHub Actions workflow:
 
-1. **Searches** the Adzuna and Reed job APIs across the whole UK, and the careers sites of 851 companies on the sponsor register.
+1. **Searches** the Adzuna and Reed job APIs across the whole UK, and the careers sites of about 1,000 companies on the sponsor register.
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
@@ -101,7 +101,7 @@ On the first day, 39 checked companies gave 18 graduate tech jobs at sponsors (P
 
 Adding systems brought new traps:
 - **Abandoned boards.** Many SmartRecruiters boards belong to companies that moved to another system years ago but never closed their old jobs: Lyst's newest "open" job was from 2016, and Beamery's was a 2021 "Test Job". Jobs posted more than a year ago are now ignored, so these boards find nothing and aren't added.
-- **Systems that answer differently.** SmartRecruiters answers "no jobs" instead of "not found" for companies it doesn't know. Workable allows only about one request every 10 seconds, measured by sending requests at different speeds, so it's probed in a separate overnight run and fetched slowly every day.
+- **Systems that answer differently.** SmartRecruiters answers "no jobs" instead of "not found" for companies it doesn't know. Workable allows only about one request every 10 seconds, measured by sending requests at different speeds, so guessing every company's board name would take 21 hours. Grady asks it only about the boards Common Crawl has seen (about 1.5 hours), and fetches its 152 boards slowly every day.
 - **Names that can't be web addresses.** Recruitee and Teamtailor put the board name in the address (`name.recruitee.com`), and one register name made a 72-character guess, over the 63-character limit. The error wasn't a network error, so it silently stopped two of the probing threads until I found it.
 
 Guessing a board from a company's first word was the weak point: `Quantum Metric` found the board of a price-comparison company called Quantum, and `Cursor Controls` (UK hardware) found Cursor (AI). The fix is the sponsor matcher's rule again: guess the first word only if **exactly one** register company starts with it. That removed every false match I found, at the cost of some real ones (Stripe, Snowflake). Four remaining one-word clashes, such as `Prophet plc` vs Prophet the consultancy, are listed in `wrong_boards` in the config after checking by hand.
@@ -162,7 +162,7 @@ To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`
 - Re-check previously rejected companies when the sponsor register updates.
 - Match the remaining NHS naming variants (e.g. "… Hospital NHS Foundation Trust", Welsh health boards), adding them to the labelled set first.
 - Discover fintech and research labs too (SIC 64, 66, 72), measured first; read board salaries where given.
-- Finish probing Workable (it blocked my connection for 16 hours after a long run) and read job-alert emails over IMAP.
+- Read job-alert emails over IMAP.
 - Use full advert text to spot "no sponsorship available" phrases.
 - Check roles against Skilled Worker salary thresholds and occupation codes.
 - Tune search terms and use each API's IT category, to bring in more tech roles.

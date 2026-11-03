@@ -101,12 +101,11 @@ Adzuna day: ~250 requests/day limit) -> (2) [done Nov 2026] public job page + RS
       Finds 27 of the 39 hand-picked; misses fintech (SIC 64/66), R&D labs (72), retail.
   (b) [done] scripts/discover_boards.py probes all of them (threads per system, Lever x4
       because it's slow; cache data/discovery/probe_cache.json) -> boards_discovered.yaml
-      (GENERATED, committed, 364 boards on 6 systems before (c); Workable not probed yet, user to run
-      it overnight; config.py loads it after config.yaml's hand list,
+      (GENERATED, committed, 364 boards on 6 systems before (c); config.py loads it after config.yaml's hand list,
       hand list wins). Accept = UK jobs + company name in board text + first-word guesses
       only when the word is unique on the register. config `boards.wrong_boards` = hand-found
-      false matches. Daily fetch: boards.fetch_boards, one thread per system, Workday x8 (~12 min,
-      851 boards incl. 114 Workday, Nov 2026).
+      false matches. Daily fetch: boards.fetch_boards, one thread per system, Workday x8 (~12 min),
+      Workable ~25 min (10 s per board). 1,003 boards incl. 121 Workday, 152 Workable (Nov 2026).
   (c) [done, Nov 2026] scripts/crawl_boards.py: Common Crawl index (3 newest monthly
       crawls, one query per system URL pattern, cache data/discovery/crawl_cache.json;
       server often 502/504 or cuts answers off -> retries) lists ~20,000 existing boards
@@ -116,11 +115,12 @@ Adzuna day: ~250 requests/day limit) -> (2) [done Nov 2026] public job page + RS
       Added 333 boards (697 discovered). 12 doubtful one-word clashes in wrong_boards:
       user rule = when unsure, leave out (non-sponsor shown as sponsor is worse).
       New ATS = add a PATTERNS entry too (test checks PATTERNS == URLS).
-      Workable not probed yet: 6,297 names x 12 s = ~21 h, too long for one night;
-      next time probe only the 1,630 crawled Workable names (~5.5 h).
+      Workable [done, Nov 2026]: guessing all names = 6,297 x 12 s = ~21 h and got the IP blocked,
+      so Workable is CRAWL_ONLY too: 419 crawled boards (~1.5 h) -> 152 kept
+      (ics, trivium, jove in wrong_boards: can't prove same company).
   (d) [done, Nov 2026] Workday (branch `workday`): CXS JSON API, POST
       {host}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs; token = "host/site".
-      Not guessable (NOT_GUESSABLE): found only via Common Crawl (its count query
+      Not guessable (CRAWL_ONLY): found only via Common Crawl (its count query
       always 504s -> read pages until empty). Daily fetch searches WORKDAY_SEARCHES
       (6 terms), looks up details only when the list location isn't clearly UK.
       WORKDAY_THREADS = 8, each site its own 0.5 s limiter (1 thread took 54 min).

@@ -46,16 +46,20 @@ OUTPUT_PATH = PROJECT_ROOT / "boards_discovered.yaml"
 
 REQUEST_INTERVAL_SECONDS = 0.25  # per thread, so at most 4 requests a second each
 # Workable refuses more than about one request every 10 seconds (measured Oct 2026:
-# ~20 quick answers, then HTTP 429 "too many requests"). Probing it takes ~10 hours,
-# so run it on its own, e.g. overnight:  python -m scripts.discover_boards workable
+# ~20 quick answers, then HTTP 429 "too many requests"). Run it on its own:
+#   python -m scripts.discover_boards workable
 SLOWER_SYSTEMS = {"workable": 12}
 # Lever's server takes 1-13 seconds to answer, so the wait is on their side, not
 # our rate limit: give it more threads, each working through a share of the companies.
 THREADS_PER_SYSTEM = {"greenhouse": 1, "lever": 4, "ashby": 1, "smartrecruiters": 1,
                       "workable": 1, "recruitee": 1, "teamtailor": 1, "workday": 1}
-# A Workday address has a site name in it ("external_career_site_barclays") that
-# can't be guessed, so Workday boards come only from Common Crawl (crawl_boards.py).
-NOT_GUESSABLE = {"workday"}
+# Systems asked only about the boards Common Crawl saw (crawl_boards.py), not our guesses:
+# - Workday: the address has a site name in it ("external_career_site_barclays")
+#   that can't be guessed.
+# - Workable: guessing every tech sponsor's names is ~6,300 requests, ~21 hours at
+#   its speed, and a long run got our IP blocked for 16 hours (Nov 2026). The
+#   ~420 crawled boards take ~1.5 hours.
+CRAWL_ONLY = {"workday", "workable"}
 TRADING_AS = re.compile(r"\s+(?:t/a|trading as)\s+", re.IGNORECASE)
 # Recruitee and Teamtailor put the board name in the web address (name.recruitee.com),
 # and one part of an address can be at most 63 characters.
@@ -280,7 +284,7 @@ def main() -> None:
     for company in companies:
         for token in guessed_tokens(company["register_name"], first_words):
             for ats in systems:
-                if ats not in NOT_GUESSABLE:
+                if ats not in CRAWL_ONLY:
                     to_probe[ats].setdefault(token, company["register_name"])
     for board in crawled:
         if board["ats"] in to_probe:
