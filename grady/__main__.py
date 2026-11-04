@@ -15,9 +15,9 @@ import requests
 from grady import adzuna, boards, nhs_jobs, reed
 from grady.agencies import AgencyDetector
 from grady.classify import classify_company
-from grady.config import PROJECT_ROOT, Settings, load_settings
+from grady.config import PROJECT_ROOT, Settings, get_secret, load_settings
 from grady.digest import build_digest, render_html, render_text, subject
-from grady.emailer import send_email
+from grady.emailer import send_email, subscribers
 from grady.http_utils import ApiError
 from grady.matching import SponsorMatcher
 from grady.site import SITE_DIR, build_site
@@ -148,10 +148,14 @@ def main() -> None:
         digests[profile.id] = digest
     print(f"Previews saved in {PREVIEWS_DIR}")
 
+    # Read once: the count goes on the page's stats, the addresses into the email.
+    friends = subscribers(get_secret("EMAIL_TO"))
+
     # The public page shows the last few weeks, emailed or not, so it's built
     # from its own query. Published by the workflow with GitHub Pages.
     shown = build_site(store.sponsor_jobs_since(site_since()), settings.profiles[settings.my_profile],
-                       signup_url=settings.signup_url, feedback_url=settings.feedback_url)
+                       signup_url=settings.signup_url, feedback_url=settings.feedback_url,
+                       subscribers=len(friends))
     print(f"Public page: {shown} jobs, saved in {SITE_DIR}")
 
     digest = digests[settings.my_profile]
@@ -163,12 +167,13 @@ def main() -> None:
         # An empty email every day teaches you to ignore the emails.
         print("No new jobs: email not sent.")
     else:
-        send_email(subject(digest, today), html, render_text(digest, today, settings.feedback_url))
+        send_email(subject(digest, today), html, render_text(digest, today, settings.feedback_url), friends)
         # Only mark jobs once the email has definitely gone. If sending fails,
         # send_email raises an error, we never reach this line, and the same
         # jobs are offered again next run.
         store.mark_emailed(digest.reported_ids)
-        print(f"Email sent; {len(digest.reported_ids)} jobs marked as emailed.")
+        print(f"Email sent to you + {len(friends)} subscribers; "
+              f"{len(digest.reported_ids)} jobs marked as emailed.")
     store.close()
 
     # Finish the run first (email sent, database saved), THEN report the problem.

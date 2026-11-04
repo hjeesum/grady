@@ -1,5 +1,6 @@
 """The public job page (grady/site.py)."""
 
+import json
 from datetime import datetime, timedelta, timezone
 from xml.etree import ElementTree
 
@@ -81,3 +82,9 @@ def test_feedback_link_only_when_a_form_is_set(profile, stored, tmp_path):
     assert "Send feedback" not in (tmp_path / "index.html").read_text(encoding="utf-8")
     build_site([stored(1)], profile, NOW, tmp_path, feedback_url="https://forms.gle/xyz")
     assert 'href="https://forms.gle/xyz"' in (tmp_path / "index.html").read_text(encoding="utf-8")
+
+
+def test_stats_file_for_the_readme_badges(profile, stored, tmp_path):
+    build_site([stored(1), stored(2, source="reed")], profile, NOW, tmp_path, subscribers=4)
+    stats = json.loads((tmp_path / "stats.json").read_text(encoding="utf-8"))
+    assert stats == {"jobs": 1, "updated": "2026-11-02T07:00+00:00", "subscribers": 4}

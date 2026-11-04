@@ -57,20 +57,25 @@ def subscribers(owner: str) -> list[str]:
     without leaking them. SIGNUP_LIST_URL includes the key, so it's a secret too.
     """
     load_dotenv(PROJECT_ROOT / ".env")
-    value = os.environ.get("SUBSCRIBERS", "")
+    by_hand = parse_subscribers(os.environ.get("SUBSCRIBERS", ""), owner)
     url = os.environ.get("SIGNUP_LIST_URL", "")
-    if url:
-        value += "\n" + signed_up(url)
-    return parse_subscribers(value, owner)
+    from_form = parse_subscribers(signed_up(url), owner) if url else []
+    found = list(dict.fromkeys(by_hand + from_form))
+    # Counts only, never addresses: the repository is public, and so are its Actions logs.
+    print(f"Subscribers: {len(found)} ({len(from_form)} from the sign-up form, "
+          f"{len(by_hand)} from SUBSCRIBERS, duplicates counted once)")
+    return found
 
 
-def send_email(subject: str, html: str, text: str) -> None:
+def send_email(subject: str, html: str, text: str, friends: list[str] | None = None) -> None:
+    """Send to EMAIL_TO, with friends as a blind copy (default: read them now)."""
     owner = get_secret("EMAIL_TO")
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = get_secret("SMTP_USER")
     message["To"] = owner
-    friends = subscribers(owner)
+    if friends is None:
+        friends = subscribers(owner)
     if friends:
         # Blind copy: each friend gets the email but can't see the others'
         # addresses. send_message() removes the Bcc line before sending.

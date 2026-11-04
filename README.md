@@ -1,6 +1,8 @@
 # Grady
 
 [![Tests](https://github.com/hjeesum/grady/actions/workflows/tests.yml/badge.svg)](https://github.com/hjeesum/grady/actions/workflows/tests.yml)
+[![Email subscribers](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fhjeesum.github.io%2Fgrady%2Fstats.json&query=%24.subscribers&label=email%20subscribers&color=blue)](https://hjeesum.github.io/grady/)
+[![Jobs on the page](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fhjeesum.github.io%2Fgrady%2Fstats.json&query=%24.jobs&label=jobs%20on%20the%20page&color=green)](https://hjeesum.github.io/grady/)
 
 **A daily email of new graduate and junior tech jobs in the UK, only from employers licensed to sponsor visas.**
 
@@ -127,7 +129,7 @@ Before this I tried a different idea and measured it first: find each company's 
 
 ## Testing
 
-200 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+202 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 

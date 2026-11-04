@@ -133,3 +133,12 @@ def test_broken_sign_up_list_still_sends_to_the_others(monkeypatch, sign_up_list
     sign_up_list(answer)
     assert emailer.subscribers("me@example.com") == ["ana@example.com"]
     assert "WARNING" in capsys.readouterr().out
+
+
+def test_subscriber_count_is_logged_without_addresses(monkeypatch, sign_up_list, capsys):
+    monkeypatch.setenv("SUBSCRIBERS", "ana@example.com")
+    sign_up_list(FakeResponse("ben@example.com\nana@example.com"))
+    emailer.subscribers("me@example.com")
+    out = capsys.readouterr().out
+    assert "Subscribers: 2 (2 from the sign-up form, 1 from SUBSCRIBERS" in out
+    assert "@" not in out  # the Actions log is public

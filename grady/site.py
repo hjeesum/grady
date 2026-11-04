@@ -8,6 +8,7 @@ them, so only sources whose terms allow showing jobs publicly are included:
 - Company boards and Workday: the employers' own public adverts, linked to them.
 """
 
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -36,8 +37,8 @@ def public_jobs(stored_jobs: list[StoredJob], profile: Profile) -> list[StoredJo
 
 def build_site(stored_jobs: list[StoredJob], profile: Profile, now: datetime | None = None,
                out_dir: Path = SITE_DIR, signup_url: str | None = None,
-               feedback_url: str | None = None) -> int:
-    """Write index.html and feed.xml to out_dir. Returns how many jobs are on the page."""
+               feedback_url: str | None = None, subscribers: int | None = None) -> int:
+    """Write index.html, feed.xml and stats.json to out_dir. Returns how many jobs are on the page."""
     now = now or datetime.now(timezone.utc)
     jobs = public_jobs(stored_jobs, profile)
     # autoescape: job text from APIs can never inject HTML (or break the XML feed).
@@ -48,6 +49,12 @@ def build_site(stored_jobs: list[StoredJob], profile: Profile, now: datetime | N
     out_dir.mkdir(parents=True, exist_ok=True)
     for name in ("index.html", "feed.xml"):
         (out_dir / name).write_text(env.get_template(f"site_{name}").render(context), encoding="utf-8")
+    # Numbers for the README's badges: shields.io reads this file from GitHub Pages,
+    # so the badges update every morning without a commit.
+    stats = {"jobs": len(jobs), "updated": now.isoformat(timespec="minutes")}
+    if subscribers is not None:
+        stats["subscribers"] = subscribers
+    (out_dir / "stats.json").write_text(json.dumps(stats), encoding="utf-8")
     return len(jobs)
 
 
