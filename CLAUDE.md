@@ -57,7 +57,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        SUBSCRIBERS (optional, friends).
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (202 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (208 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
@@ -143,8 +143,16 @@ Adzuna day: ~250 requests/day limit) -> (2) [done Nov 2026] public job page + RS
   Never scrape LinkedIn/Indeed: no official LinkedIn search API exists, paid "LinkedIn
   APIs" are scrapers, and the user's own account could be banned.
 - Friends (Nov 2026, user chose: friends send their address, user adds it): optional secret
-  SUBSCRIBERS (commas/new lines) -> same digest as Bcc (emailer.parse_subscribers).
-  Addresses only in GitHub Secrets / .env. Footer: "reply to stop". emailed_at is shared,
+  SUBSCRIBERS (commas/new lines) -> same digest (emailer.parse_subscribers).
+  Nov 2026: Bcc replaced by ONE EMAIL PER PERSON (To = them, 1 s apart, one SMTP session,
+  reconnect once on disconnect; refused address = skipped; SMTPDataError = Gmail daily limit
+  -> stop; owner's copy failing raises so nothing is marked). Failures -> run exits non-zero
+  AFTER marking. Unsubscribe button: link = script URL ?action=unsubscribe&email&token,
+  token = HMAC-SHA256(key from SIGNUP_LIST_URL, address); script confirms ("Yes" link, because
+  scanners open links), deletes their rows, logs them in an "Unsubscribed" tab; list output
+  has "-address" lines so SUBSCRIBERS entries are dropped too. Also List-Unsubscribe header.
+  Owner's own copy: no link, footer "reply to stop".
+  Addresses only in GitHub Secrets / .env. emailed_at is shared,
   fine while everyone gets the one tech digest; per-recipient table only if profiles differ.
   Sign-up: config.yaml site.signup_url = Google Form (answers private to the user) ->
   "Get them by email" button on the page. Form collects VERIFIED emails (Google sign-in: no

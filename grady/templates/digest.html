@@ -67,7 +67,11 @@
     {% for reason, count in digest.filtered_out.most_common() %}{{ count }} {{ reason }}{% if not loop.last %}, {% endif %}{% endfor %}.<br>
     {% endif %}
     Always confirm sponsorship with the employer before applying. Sent by Grady.<br>
+    {% if unsubscribe_url %}
+    <br><a href="{{ unsubscribe_url }}" style="display:inline-block; margin-top:8px; padding:6px 14px; border:1px solid #d0d7de; border-radius:6px; color:#57606a; text-decoration:none;">Unsubscribe</a>
+    {% else %}
     To stop these emails, reply and say so.
+    {% endif %}
     {% if feedback_url %}<br>Ideas or problems? <a href="{{ feedback_url }}" style="color:#0969da;">Send feedback</a>.{% endif %}
   </td></tr>
 

@@ -146,3 +146,14 @@ def test_feedback_link_in_both_email_versions(settings, stored):
     url = "https://forms.gle/xyz"
     assert f'href="{url}"' in render_html(digest, today, url)
     assert url in render_text(digest, today, url)
+
+
+def test_unsubscribe_button_replaces_reply_to_stop(settings, stored):
+    digest = digest_of([stored(1)], settings)
+    today = date(2026, 10, 30)
+    assert "reply and say so" in render_html(digest, today)  # my own copy: no link
+    url = "https://script.example.com/exec?action=unsubscribe&email=a%40b.com&token=t"
+    html = render_html(digest, today, unsubscribe_url=url)
+    assert 'href="https://script.example.com/exec?action=unsubscribe&amp;email=a%40b.com&amp;token=t"' in html
+    assert "reply and say so" not in html
+    assert f"Unsubscribe: {url}" in render_text(digest, today, unsubscribe_url=url)

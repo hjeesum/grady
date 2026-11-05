@@ -159,7 +159,7 @@ def main() -> None:
     print(f"Public page: {shown} jobs, saved in {SITE_DIR}")
 
     digest = digests[settings.my_profile]
-    html = render_html(digest, today, settings.feedback_url)
+    failed = 0  # subscribers whose email wasn't sent
     print(f"\nYour email ({digest.profile_name}): left out by filters: {dict(digest.filtered_out)}")
     if args.dry_run:
         print("Dry run: email not sent.")
@@ -167,20 +167,30 @@ def main() -> None:
         # An empty email every day teaches you to ignore the emails.
         print("No new jobs: email not sent.")
     else:
-        send_email(subject(digest, today), html, render_text(digest, today, settings.feedback_url), friends)
+        # Each person's copy has their own unsubscribe link, so the email is made per person.
+        failed = send_email(subject(digest, today),
+                            lambda link: render_html(digest, today, settings.feedback_url, link),
+                            lambda link: render_text(digest, today, settings.feedback_url, link),
+                            friends)
         # Only mark jobs once the email has definitely gone. If sending fails,
         # send_email raises an error, we never reach this line, and the same
         # jobs are offered again next run.
         store.mark_emailed(digest.reported_ids)
-        print(f"Email sent to you + {len(friends)} subscribers; "
+        print(f"Email sent to you + {len(friends) - failed} subscribers; "
               f"{len(digest.reported_ids)} jobs marked as emailed.")
     store.close()
 
     # Finish the run first (email sent, database saved), THEN report the problem.
     # A non-zero exit code makes GitHub Actions mark the run as failed and email you.
+    problems = []
     if failed_sources:
-        sys.exit(f"\nERROR: {', '.join(failed_sources)} failed every time. "
-                 "Check the API key (or, for company boards, the network).")
+        problems.append(f"{', '.join(failed_sources)} failed every time. "
+                        "Check the API key (or, for company boards, the network).")
+    if failed:
+        problems.append(f"{failed} subscribers' emails weren't sent (wrong addresses, or "
+                        "Gmail's daily sending limit). They get the next email as usual.")
+    if problems:
+        sys.exit("\nERROR: " + "\nERROR: ".join(problems))
 
 
 if __name__ == "__main__":
