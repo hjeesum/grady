@@ -44,11 +44,11 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        Tech excludes "product owner", "interim" (false positives seen in real data). A max
        salary cap (60k) was tested and rejected: it dropped real junior jobs / top grad pay.
    Original plan: HTML, new sponsor jobs since last run, preferred cities first, cap ~30 + "N more".
-8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (06:37 UTC, off the hour +
-       manual "Run workflow" button). GitHub cron starts 7-10 h late, so cron-job.org
+8. [x] GitHub Actions: .github/workflows/tests.yml (every push) and daily.yml (no GitHub schedule, only the
+       "Run workflow" button). GitHub cron started 7-10 h late, so cron-job.org
        POSTs workflow_dispatch at 06:37 Europe/London (fine-grained token: this repo, Actions
-       read/write, 1-year expiry; renew Nov 2027). GitHub cron kept as backup for now;
-       concurrency group stops double runs. jobs.db persists on a one-commit "data" branch
+       read/write, 1-year expiry; renew Nov 2027). GitHub cron backup REMOVED (Nov 2026):
+       a 2nd daily email to ~209 people came close to Gmail's ~500/day. concurrency group stops double runs. jobs.db persists on a one-commit "data" branch
        of the PRIVATE repo hjeesum/grady-data (secret DATA_REPO_TOKEN: that repo only,
        Contents read/write), because grady goes public and the db holds Reed jobs
        (restored at start, force-pushed at end; a failed restore stops the run so old jobs

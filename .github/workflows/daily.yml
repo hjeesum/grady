@@ -2,12 +2,10 @@
 name: Daily digest
 
 on:
-  schedule:
-    # Cron times are in UTC: 06:37 UTC is 6:37am in UK winter, 7:37am in summer.
-    # Not on the hour: GitHub's docs say the start of every hour is its busiest
-    # time and scheduled runs may be delayed or even dropped then. (The 07:00
-    # run on 31 Oct 2026 never started.) Runs can still start late.
-    - cron: "37 6 * * *"
+  # No GitHub "schedule:": it started runs 7-10 hours late, so cron-job.org presses
+  # the "Run workflow" button below at 06:37 UK time instead. A late GitHub run as
+  # a backup meant a second email to every subscriber each day, and Gmail allows
+  # only about 500 recipients a day.
   workflow_dispatch:  # adds a "Run workflow" button on GitHub, for running it by hand
 
 # Never run two digests at once: they'd both read the same database and
@@ -83,7 +81,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          # Optional: friends' addresses (commas or new lines). They get a blind copy.
+          # Optional: friends' addresses (commas or new lines). Each gets their own email.
           SUBSCRIBERS: ${{ secrets.SUBSCRIBERS }}
           # Optional: web address (with key) of the sign-up Sheet's list; see scripts/signup_sheet.gs.
           SIGNUP_LIST_URL: ${{ secrets.SIGNUP_LIST_URL }}
