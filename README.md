@@ -22,7 +22,8 @@ Every morning, a GitHub Actions workflow:
 2. **Removes duplicates**: the same job reposted, or listed on both sites.
 3. **Checks each employer** against the 128,000 names on the sponsor register.
 4. **Filters** out senior roles, non-tech roles and low salaries.
-5. **Emails me** only the jobs I haven't seen before, preferred cities first.
+5. **Reads each remaining advert** for what it says about visas: jobs that say "no sponsorship" move to their own section.
+6. **Emails me** only the jobs I haven't seen before, preferred cities first.
 
 ![Example digest email](docs/example_digest.png)
 
@@ -127,9 +128,21 @@ Before this I tried a different idea and measured it first: find each company's 
 - **A public page, but only what's allowed.** The run also builds a web page and RSS feed of the last 14 days' sponsor jobs, published with GitHub Pages. Before publishing I read each source's terms: Reed allows its jobs only for private use, so they stay in the email; Adzuna allows display if every job carries an "Adzuna" link. The page uses an allow-list of sources, so a source added later stays off it until its terms are checked.
 - **Friends get the same email.** They sign up with a Google Form linked from the page (signing in with Google, so nobody can sign up a stranger). The answers go to my private Google Sheet; a small Apps Script ([scripts/signup_sheet.gs](scripts/signup_sheet.gs)) hands the list only to a request carrying a secret key, and the daily run reads it, so new friends get the next email automatically. Addresses never appear in the code. Each person gets their own copy, addressed to them, with a personal unsubscribe button: the link carries an HMAC of their address made with the secret key, so it can't be edited to unsubscribe someone else, and the script asks "are you sure?" first because email security scanners open links by themselves.
 
+### 7. A sponsor employer doesn't mean a sponsored job
+
+A subscriber pointed out that a company on the register may still refuse to sponsor a particular job. I measured it before building anything: of 41 adverts in the email I could read in full, **22 said they wouldn't sponsor**. All 11 of one company's graduate jobs said so, while three Barclays graduate programmes said they *would*.
+
+So the run downloads the full text of every job that would be emailed (about 15 a day, from the same official APIs) and reads its visa sentences with fixed phrases ([grady/visa.py](grady/visa.py)), tested on real wording:
+
+- **"Visa must last the whole job"**: "you must have the right to work in the UK for the full duration of the programme". Someone on a Graduate visa can still apply.
+- **"No sponsorship"**: "unable to sponsor", "now or in the future", "including Graduate visas". A strict "no" wins over a duration rule.
+- **"Sponsors visas"**: "will provide a Skilled Worker visa".
+
+Jobs that say no aren't deleted: they move to a section at the bottom of the email. Subscribers hold different visas, and a misread advert should be moved down, never lost. Phrases rather than an AI model, because the project must stay free and every decision has to be testable. Adzuna's API gives only the first lines of an advert, so its jobs aren't checked.
+
 ## Testing
 
-208 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
+228 pytest tests cover name normalisation, sponsor matching (including the look-alike traps), de-duplication, database migrations, API response parsing, filters and email rendering. They make no network calls: APIs are replaced with sample JSON, and the email server with a fake SMTP class.
 
 To check the tests can actually catch bugs, I introduced deliberate ones: lowering the threshold, letting the prefix rule guess, checking agencies after sponsors, and turning off HTML escaping. Each was caught by the test written for it.
 
@@ -155,7 +168,7 @@ To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`
 
 ## Limitations
 
-- **A licence isn't a guarantee.** The register shows an employer *can* sponsor, not that they will for a given role. The role must also meet Skilled Worker rules, such as salary thresholds and eligible occupations. Always confirm with the employer.
+- **A licence isn't a guarantee.** The register shows an employer *can* sponsor, not that they will for a given role. Grady reads each advert's own visa wording, but many adverts say nothing, and Adzuna adverts can't be read in full. The role must also meet Skilled Worker rules, such as salary thresholds and eligible occupations. Always confirm with the employer.
 - **Remote/hybrid detection is a guess**, made from the short advert snippet the APIs return. Most jobs show as "unknown".
 - **Some sponsors are missed on purpose.** When a brand name differs completely from the legal name, matching leaves it out rather than guess.
 
@@ -165,7 +178,6 @@ To run it daily on GitHub, add `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `REED_API_KEY`
 - Match the remaining NHS naming variants (e.g. "… Hospital NHS Foundation Trust", Welsh health boards), adding them to the labelled set first.
 - Discover fintech and research labs too (SIC 64, 66, 72), measured first; read board salaries where given.
 - Read job-alert emails over IMAP.
-- Use full advert text to spot "no sponsorship available" phrases.
 - Check roles against Skilled Worker salary thresholds and occupation codes.
 - Tune search terms and use each API's IT category, to bring in more tech roles.
 - A small web page to browse past jobs and mark ones I've applied to.

@@ -18,6 +18,7 @@ from grady.config import BOARD_SYSTEMS, PROJECT_ROOT, Profile
 from grady.digest import TEMPLATES_DIR, format_salary
 from grady.filters import rejection_reason
 from grady.models import StoredJob
+from grady.visa import LABELS
 
 SITE_DIR = PROJECT_ROOT / "data" / "site"
 # An allow-list, not a block-list: a source added later stays off the public
@@ -45,7 +46,8 @@ def build_site(stored_jobs: list[StoredJob], profile: Profile, now: datetime | N
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     context = {"jobs": jobs, "now": now, "days": DAYS_SHOWN, "profile_name": profile.name,
                "site_url": SITE_URL, "signup_url": signup_url, "feedback_url": feedback_url,
-               "format_salary": format_salary}
+               "format_salary": format_salary,
+               "visa_label": lambda stored: LABELS.get(stored.visa_note or "")}
     out_dir.mkdir(parents=True, exist_ok=True)
     for name in ("index.html", "feed.xml"):
         (out_dir / name).write_text(env.get_template(f"site_{name}").render(context), encoding="utf-8")

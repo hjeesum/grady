@@ -1,6 +1,7 @@
 """The public job page (grady/site.py)."""
 
 import json
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from xml.etree import ElementTree
 
@@ -88,3 +89,9 @@ def test_stats_file_for_the_readme_badges(profile, stored, tmp_path):
     build_site([stored(1), stored(2, source="reed")], profile, NOW, tmp_path, subscribers=4)
     stats = json.loads((tmp_path / "stats.json").read_text(encoding="utf-8"))
     assert stats == {"jobs": 1, "updated": "2026-11-02T07:00+00:00", "subscribers": 4}
+
+
+def test_visa_wording_is_shown_on_the_page(profile, stored, tmp_path):
+    no = replace(stored(1, source="greenhouse"), visa_note="no_sponsorship")
+    build_site([no, stored(2, source="greenhouse")], profile, NOW, tmp_path)
+    assert (tmp_path / "index.html").read_text(encoding="utf-8").count("Advert says no sponsorship") == 1

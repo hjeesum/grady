@@ -50,6 +50,7 @@ class Profile:
 class EmailSettings:
     max_sponsor_jobs: int
     max_agency_jobs: int
+    max_no_sponsorship_jobs: int = 10
 
 
 @dataclass(frozen=True)
@@ -141,6 +142,7 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
         email=EmailSettings(
             max_sponsor_jobs=int(raw["email"]["max_sponsor_jobs"]),
             max_agency_jobs=int(raw["email"]["max_agency_jobs"]),
+            max_no_sponsorship_jobs=int(raw["email"].get("max_no_sponsorship_jobs", 10)),
         ),
         known_agencies=list(raw["agencies"]["known_names"]),
         boards=_load_boards(raw["boards"], path.parent / DISCOVERED_BOARDS_FILE),

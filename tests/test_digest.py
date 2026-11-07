@@ -157,3 +157,23 @@ def test_unsubscribe_button_replaces_reply_to_stop(settings, stored):
     assert 'href="https://script.example.com/exec?action=unsubscribe&amp;email=a%40b.com&amp;token=t"' in html
     assert "reply and say so" not in html
     assert f"Unsubscribe: {url}" in render_text(digest, today, unsubscribe_url=url)
+
+
+def test_jobs_whose_advert_says_no_move_to_their_own_section(settings, stored):
+    jobs = [
+        stored(1, title="Software Developer A"),
+        replace(stored(2, title="Software Developer B"), visa_note="no_sponsorship"),
+        replace(stored(3, title="Software Developer C"), visa_note="visa_must_last"),
+        replace(stored(4, title="Software Developer D"), visa_note="sponsors"),
+    ]
+    digest = digest_of(jobs, settings)
+    assert [s.id for s in digest.sponsor.all_jobs] == [1, 4]
+    # "Your visa must last" first: Graduate visa holders can apply to those.
+    assert [s.id for s in digest.no_sponsorship.all_jobs] == [3, 2]
+    assert sorted(digest.reported_ids) == [1, 2, 3, 4]  # all marked as emailed
+
+    html = render_html(digest, date(2026, 11, 7))
+    assert "Advert says no sponsorship" in html and "Advert says it sponsors visas" in html
+    text = render_text(digest, date(2026, 11, 7))
+    assert "ADVERT SAYS NO SPONSORSHIP" in text
+    assert "No sponsorship: your own visa must last the whole job" in text

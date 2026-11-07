@@ -95,3 +95,13 @@ def test_version_2_database_is_upgraded_and_keeps_its_jobs(tmp_path):
     assert store.count() == 1
     assert store.companies_to_classify() == ["Acme"]
     store.close()
+
+
+def test_visa_notes_are_saved(store, make_job):
+    store.save_new([make_job(company="Capgemini")])
+    store.set_sponsor_status({"Capgemini": ("sponsor", "Capgemini UK PLC")})
+    [stored] = store.jobs_to_email()
+    assert stored.visa_note is None  # not read yet
+
+    store.set_visa_notes({stored.id: "visa_must_last"})
+    assert store.jobs_to_email()[0].visa_note == "visa_must_last"

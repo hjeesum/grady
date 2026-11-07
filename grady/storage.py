@@ -13,7 +13,7 @@ DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "jobs.db"
 
 # Bump this whenever SCHEMA changes, and add a step to MIGRATIONS so existing
 # database files are upgraded instead of having to be deleted.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     sponsor_status TEXT,          -- "sponsor", "agency", "not_sponsor"; NULL = not checked yet
     sponsor_name   TEXT,          -- the matching name on the sponsor register
     emailed_at     TEXT,          -- when it was sent in a digest; NULL = not yet
+    visa_note      TEXT,          -- what the advert says about visas (grady/visa.py); NULL = not read
     -- The same advert must never be stored twice from the same source.
     UNIQUE (source, source_id)
 );
@@ -48,6 +49,7 @@ MIGRATIONS = {
         ALTER TABLE jobs ADD COLUMN sponsor_name TEXT;
     """,
     3: "ALTER TABLE jobs ADD COLUMN emailed_at TEXT;",
+    4: "ALTER TABLE jobs ADD COLUMN visa_note TEXT;",
 }
 
 
@@ -172,7 +174,8 @@ class JobStore:
         rows = self.conn.execute(
             f"""
             SELECT id, source, source_id, title, company, location, work_mode,
-                   salary_min, salary_max, url, posted_at, sponsor_status, sponsor_name
+                   salary_min, salary_max, url, posted_at, sponsor_status, sponsor_name,
+                   visa_note
             FROM jobs
             {where}
             """,
@@ -189,9 +192,16 @@ class JobStore:
                 ),
                 sponsor_status=row[11],
                 sponsor_name=row[12],
+                visa_note=row[13],
             )
             for row in rows
         ]
+
+    def set_visa_notes(self, notes: dict[int, str]) -> None:
+        """Save {job id: visa note} (see grady/visa.py)."""
+        with self.conn:
+            self.conn.executemany("UPDATE jobs SET visa_note = ? WHERE id = ?",
+                                  [(note, job_id) for job_id, note in notes.items()])
 
     def mark_emailed(self, job_ids: list[int]) -> None:
         """Record that these jobs were reported in a digest, so they're never sent again."""

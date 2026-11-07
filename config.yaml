@@ -254,6 +254,8 @@ email:
   # The most jobs to list in each section; the email says how many more there are.
   max_sponsor_jobs: 30
   max_agency_jobs: 10
+  # Sponsor jobs whose advert says it won't sponsor (grady/visa.py), at the bottom.
+  max_no_sponsorship_jobs: 10
 
 agencies:
   # Recruitment agencies hide the real employer, so we can't check sponsorship.

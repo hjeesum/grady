@@ -26,6 +26,8 @@ class StoredJob:
     job: Job
     sponsor_status: str  # "sponsor", "agency" or "not_sponsor"
     sponsor_name: str | None  # the matching name on the sponsor register
+    # What the advert says about visas (grady/visa.py); None = not read (yet).
+    visa_note: str | None = None
 
 
 def detect_work_mode(text: str) -> str:

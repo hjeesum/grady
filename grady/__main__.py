@@ -12,12 +12,13 @@ from datetime import date
 
 import requests
 
-from grady import adzuna, boards, nhs_jobs, reed
+from grady import adzuna, adverts, boards, nhs_jobs, reed
 from grady.agencies import AgencyDetector
 from grady.classify import classify_company
 from grady.config import PROJECT_ROOT, Settings, get_secret, load_settings
 from grady.digest import build_digest, render_html, render_text, subject
 from grady.emailer import send_email, subscribers
+from grady.filters import rejection_reason
 from grady.http_utils import ApiError
 from grady.matching import SponsorMatcher
 from grady.site import SITE_DIR, build_site
@@ -25,6 +26,7 @@ from grady.site import since as site_since
 from grady.models import Job
 from grady.sponsors import download_register, load_sponsor_names
 from grady.storage import JobStore
+from grady.visa import visa_note
 
 # Every source has the same fetch_all(term, max_pages, max_days_old) function,
 # so adding a source means adding one line here.
@@ -108,6 +110,28 @@ def classify_unchecked(store: JobStore, settings: Settings) -> None:
     print(f"Database now holds {store.count()} jobs: {store.count_by_sponsor_status()}")
 
 
+def read_visa_notes(store: JobStore, settings: Settings) -> None:
+    """Read what each advert says about visas, for sponsor jobs that would be
+    emailed or put on the page and haven't been read yet (about 15 a day)."""
+    candidates = {s.id: s for s in store.jobs_to_email() + store.sponsor_jobs_since(site_since())}
+    to_read = [
+        s for s in candidates.values()
+        if s.sponsor_status == "sponsor" and s.visa_note is None and s.job.source in adverts.SOURCES
+        and any(rejection_reason(s.job, p.filters) is None for p in settings.profiles.values())
+    ]
+    reader = adverts.AdvertReader()
+    notes, failed = {}, 0
+    for stored in to_read:
+        try:
+            notes[stored.id] = visa_note(reader.text(stored.job))
+        # A closed job (404) or an odd answer: not read this time, tried again next run.
+        except (ApiError, requests.RequestException, KeyError, ValueError, TypeError):
+            failed += 1
+    store.set_visa_notes(notes)
+    print(f"\nRead {len(notes)} adverts for visa wording ({failed} couldn't be read): "
+          f"{dict(Counter(note or 'says nothing' for note in notes.values()))}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m grady")
     parser.add_argument(
@@ -131,6 +155,8 @@ def main() -> None:
 
     failed_sources = [] if args.skip_fetch else fetch_and_store(store, settings)
     classify_unchecked(store, settings)
+    if not args.skip_fetch:
+        read_visa_notes(store, settings)
 
     # Build every profile's digest from the same stored jobs, and save each as a
     # preview. (For now only my_profile is emailed; emailed_at tracks that email.)

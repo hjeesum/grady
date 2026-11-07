@@ -59,7 +59,7 @@ Licensed Sponsors, and emails a daily digest of NEW jobs.
        SUBSCRIBERS (optional, friends).
 9. [x] README.md. Screenshot docs/example_digest.png is from FICTIONAL jobs:
        regenerate with `python -m scripts.make_example_digest`, then screenshot the HTML.
-       Keep README numbers in sync if matching/tests change (208 tests, 17/18 correct, 0 wrong).
+       Keep README numbers in sync if matching/tests change (228 tests, 17/18 correct, 0 wrong).
 
 ## Extension: multiple job types and people (started Oct 2026)
 User chose: Option B (personal profiles) built "search once, match many", must stay FREE.
@@ -167,6 +167,18 @@ Adzuna day: ~250 requests/day limit) -> (2) [done Nov 2026] public job page + RS
   Subscriber COUNT (never addresses: Actions logs are public) is logged each run and
   published in data/site/stats.json -> shields.io dynamic badges in the README.
   208 form sign-ups on 4 Nov 2026: watch Gmail sending limits (each email = 1 + N recipients).
+  245 on 6 Nov (+37 in 3 days): at ~500/day Gmail stops. Suggested: cap ~450 + point to RSS.
+- Visa wording (Nov 2026, from subscriber feedback "sponsor company != sponsored job"):
+  measured 22/41 readable adverts say no. User chose: SEPARATE SECTION at the bottom, not
+  dropped (subscribers' visas differ; a misread advert moves down, never lost).
+  grady/adverts.py downloads full text (official APIs, existing rate limiters; Ashby/
+  Recruitee/Teamtailor = whole board, cached per run) only for sponsor jobs that pass a
+  profile's filters and have visa_note NULL (about 15/day; first run 64 in 62 s).
+  grady/visa.py: only sentences about visas/right to work; order HARD_NO ("now or in the
+  future", "including graduate visa") > MUST_LAST ("full duration", "remaining on visa")
+  > NO > YES. jobs.visa_note (migration 4): NULL = not read (failures retried next run:
+  closed jobs give 404, Workday 403), "" = says nothing. Adzuna/NHS not read (snippet only).
+  Skipped with --skip-fetch. Labels shown in email + on the page.
 
 ## Layout
 - `grady/` — Python package. Run with `python -m grady`.

@@ -11,6 +11,7 @@ from grady.config import EmailSettings, Profile
 from grady.filters import rejection_reason
 from grady.models import Job, StoredJob
 from grady.normalise import same_location
+from grady.visa import LABELS, NO_SPONSORSHIP, VISA_MUST_LAST
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -37,11 +38,15 @@ class Digest:
     preferred_cities: list[str]  # marked with a star in the email
     sponsor: Section
     agency: Section
+    # Sponsor employers whose advert says this job isn't sponsored. Moved here,
+    # not dropped: people on a Graduate visa (or with a partner's visa) can still
+    # apply, and a misread advert is only moved down, never lost.
+    no_sponsorship: Section
     filtered_out: Counter  # reason -> number of jobs left out for that reason
 
     @property
     def is_empty(self) -> bool:
-        return not self.sponsor.jobs and not self.agency.jobs
+        return not (self.sponsor.jobs or self.agency.jobs or self.no_sponsorship.jobs)
 
     @property
     def reported_ids(self) -> list[int]:
@@ -50,7 +55,7 @@ class Digest:
         Filtered-out jobs aren't included, so if you loosen a filter they still
         appear in a later email.
         """
-        return [s.id for s in self.sponsor.all_jobs + self.agency.all_jobs]
+        return [s.id for s in self.sponsor.all_jobs + self.agency.all_jobs + self.no_sponsorship.all_jobs]
 
 
 def build_digest(stored_jobs: list[StoredJob], profile: Profile, email: EmailSettings) -> Digest:
@@ -75,15 +80,23 @@ def build_digest(stored_jobs: list[StoredJob], profile: Profile, email: EmailSet
         # Within each group, newest first (a negative timestamp sorts newest first).
         return (group, -job.posted_at.timestamp())
 
+    says_no = {VISA_MUST_LAST, NO_SPONSORSHIP}
+
     def section(status: str, cap: int) -> Section:
-        jobs = sorted((s for s in kept if s.sponsor_status == status), key=sort_key)
+        jobs = sorted((s for s in kept if s.sponsor_status == status and s.visa_note not in says_no),
+                      key=sort_key)
         return Section(all_jobs=jobs, cap=cap)
+
+    # "Your visa must last" first: those are open to Graduate visa holders.
+    no_sponsorship = sorted((s for s in kept if s.sponsor_status == "sponsor" and s.visa_note in says_no),
+                            key=lambda s: (s.visa_note != VISA_MUST_LAST, sort_key(s)))
 
     return Digest(
         profile_name=profile.name,
         preferred_cities=filters.preferred_cities,
         sponsor=section("sponsor", email.max_sponsor_jobs),
         agency=section("agency", email.max_agency_jobs),
+        no_sponsorship=Section(all_jobs=no_sponsorship, cap=email.max_no_sponsorship_jobs),
         filtered_out=filtered_out,
     )
 
@@ -121,6 +134,7 @@ def render_html(digest: Digest, today: date, feedback_url: str | None = None,
         feedback_url=feedback_url,
         unsubscribe_url=unsubscribe_url,
         format_salary=format_salary,
+        visa_label=lambda stored: LABELS.get(stored.visa_note or ""),
         is_preferred=lambda job: is_preferred_city(job, digest.preferred_cities),
     )
 
@@ -132,6 +146,7 @@ def render_text(digest: Digest, today: date, feedback_url: str | None = None,
     sections = [
         ("LICENSED SPONSORS", digest.sponsor),
         ("RECRUITMENT AGENCIES: check sponsorship yourself", digest.agency),
+        ("ADVERT SAYS NO SPONSORSHIP: only if your own visa covers it", digest.no_sponsorship),
     ]
     for heading, section in sections:
         if not section.jobs:
@@ -143,8 +158,10 @@ def render_text(digest: Digest, today: date, feedback_url: str | None = None,
                 job.title,
                 f"  {job.company} · {job.location or 'Location not given'} · {format_salary(job)}",
                 f"  {job.url}",
-                "",
             ]
+            if LABELS.get(stored.visa_note or ""):
+                lines.append(f"  {LABELS[stored.visa_note]}")
+            lines.append("")
         if section.more:
             lines += [f"...and {section.more} more.", ""]
     lines.append("Always confirm sponsorship with the employer before applying.")

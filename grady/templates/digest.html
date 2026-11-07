@@ -31,6 +31,10 @@
       {{ format_salary(job) }} · Posted {{ job.posted_at.strftime("%d %b") }} · via {{ job.source | capitalize }}
       {%- if show_register and stored.sponsor_name %}<br>Sponsor register: {{ stored.sponsor_name }}{% endif %}
     </div>
+    {% set label = visa_label(stored) %}
+    {% if label %}
+    <div style="margin-top:4px; font-size:13px; font-weight:bold; color:{{ '#1a7f37' if stored.visa_note == 'sponsors' else '#9a6700' }};">{{ label }}</div>
+    {% endif %}
   </td></tr>
   {% endmacro %}
 
@@ -58,6 +62,22 @@
   {% endfor %}
   {% if digest.agency.more %}
   <tr><td style="padding:8px 24px; font-size:14px; color:#57606a;">…and {{ digest.agency.more }} more.</td></tr>
+  {% endif %}
+  {% endif %}
+
+  {% if digest.no_sponsorship.jobs %}
+  <tr><td style="padding:24px 24px 4px;">
+    <h2 style="margin:0; font-size:16px;">Advert says no sponsorship</h2>
+    <p style="margin:4px 0 0; font-size:13px; color:#57606a;">
+      These employers sponsor some jobs, but this advert says it won't. Only apply if your own visa
+      (for example a Graduate visa) lets you work for as long as the job needs.
+    </p>
+  </td></tr>
+  {% for stored in digest.no_sponsorship.jobs %}
+    {{ job_row(stored, true) }}
+  {% endfor %}
+  {% if digest.no_sponsorship.more %}
+  <tr><td style="padding:8px 24px; font-size:14px; color:#57606a;">…and {{ digest.no_sponsorship.more }} more.</td></tr>
   {% endif %}
   {% endif %}
 
