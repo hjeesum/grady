@@ -88,7 +88,30 @@ profiles:
       - .net
       - firmware
       - embedded
+      # Added Nov 2026: tech jobs whose titles had none of the words above. On a
+      # week of real jobs they took the email from 74 to 95 jobs, losing none.
+      # Whole words, so "cyber" doesn't match "cybersecurity".
+      - cybersecurity
+      - information security
+      - security engineer
+      - security analyst
+      - security consultant
+      - quantitative
+      - systems administrator
+      - site reliability
+      - SRE
+      - forward deployed
+      - solutions engineer
+      - research engineer
+      - technical business analyst  # not plain "business analyst": NHS and admin jobs
+      - technical consultant
+      - technical graduate
+      - techops
+      - technical operations
       # Not "infrastructure": "Graduate Infrastructure Engineer" is often civil engineering.
+      # Not "QA" or "test engineer": also used for factory and car-testing jobs.
+      # Not "hardware", "silicon", "systems engineer", "UX": suit electronics or
+      # design graduates more than software ones.
     exclude_keywords:
       - staff  # "Staff Engineer" is a senior tech role
       - manager
@@ -96,6 +119,8 @@ profiles:
       # "Technical Product Owner", "Interim Financial Controller".
       - product owner
       - interim
+      # "Non-Technical Graduate" would match "technical graduate" above.
+      - non-technical
     # No maximum salary: tried 60000 (Oct 2026), but it removed real junior jobs,
     # and top graduate jobs (quant firms, big tech) pay well above that.
     min_salary: 30000
